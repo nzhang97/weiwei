@@ -818,6 +818,26 @@ export class PlayerState {
   // =================================================================================================
   // intent handlers
 
+  freeOperatorPickOptions() {
+    if (!this.m.freeOperatorPick || this.isBot) return [];
+    return this.gd.visibleChess.filter(id => this.gd.tierOf(id) <= this.shop.level
+      && this.m.pool.has(id) && this.m.pool.left(id) > 0);
+  }
+
+  freeOperatorPick(chessId) {
+    const g = this._gate(); if (g) return g;
+    if (!this.m.freeOperatorPick || this.isBot) return fail(ERR.BAD_TARGET, '未开启免费自选');
+    if (this.round.freeOperatorPickUsed) return fail(ERR.BAD_TARGET, '本回合免费自选已使用');
+    if (!this.freeOperatorPickOptions().includes(chessId)) return fail(ERR.BAD_TARGET, '干员等级超过基地等级或当前不可选');
+    if (freeSlot(this.hand) < 0 && !this.completesChessMerge(chessId)) return fail(ERR.HAND_FULL);
+    // Consume before onGain hooks, to make duplicate/reentrant requests harmless.
+    this.round.freeOperatorPickUsed = true;
+    const piece = this.acquireChess(chessId, { source: 'freeOperatorPick' });
+    if (!piece) { this.round.freeOperatorPickUsed = false; return fail(ERR.HAND_FULL); }
+    this.recompute();
+    return OK;
+  }
+
   buy(slotIdx) {
     const g = this._gate(); if (g) return g;
     if (!Number.isInteger(slotIdx) || slotIdx < 0 || slotIdx >= this.shop.slots.length) return fail(ERR.BAD_TARGET);
@@ -1477,6 +1497,11 @@ export class PlayerState {
       bandId: this.bandId,
       ready: this.ready,
       canReady: this.alive && this.tempEmpty && this.m.phase === PHASE.PREP,
+      freeOperatorPick: {
+        enabled: this.m.freeOperatorPick && !this.isBot,
+        used: this.round.freeOperatorPickUsed === true,
+        options: this.round.freeOperatorPickUsed ? [] : this.freeOperatorPickOptions(),
+      },
       shop: {
         level: this.shop.level,
         maxLevel: this.gd.maxShopLevel,

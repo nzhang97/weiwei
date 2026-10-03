@@ -240,7 +240,7 @@ function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, armed, 
  *   reward?: any, onReward?: (idx:number)=>void, onRewardLater?: Function }} props
  */
 export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
-  reward = null, onReward, onRewardLater, onArm = null }) {
+  reward = null, onReward, onRewardLater, onArm = null, onFreePick }) {
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   const chessSlots = slots.map((s, i) => ({ s, i })).filter(({ s }) => !s || s.kind !== 'item');
@@ -292,6 +292,10 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
 
   return html`<section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} ref=${barRef} aria-label="调度中心">
     <div class="shopbar__tools">
+      ${priv?.freeOperatorPick?.enabled ? html`<button type="button" class="toolbtn toolbtn--freepick"
+        disabled=${!editable || priv.freeOperatorPick.used} onClick=${onFreePick}>
+        <span>${priv.freeOperatorPick.used ? '本回合已自选' : '免费自选干员'}</span>
+      </button>` : null}
       <span class="shopbar__remain">剩余可放置角色：<b class=${cx('num', remaining === 0 && 't-orange')}>${remaining}</b></span>
       <button type="button" class=${cx('toolbtn', 'toolbtn--ice', frozen && 'is-on')} disabled=${!!frzReason} onClick=${onFreeze}
         title=${frzReason || (frozen ? '解冻商店 · F' : '冻结商店（下回合保留） · F')}>

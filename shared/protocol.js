@@ -237,6 +237,7 @@ export const C2S = {
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
   'room.setAiOperatorBuff': { enabled: isBool },
   'room.setHumanOperatorBuff': { enabled: isBool },
+  'room.setFreeOperatorPick': { enabled: isBool },
   'room.addBot': {},
   'room.removeBot': { seat: (v) => isInt(v, 0, MAX_SEATS - 1) },
   'room.start': {},
@@ -251,6 +252,7 @@ export const C2S = {
   // free (Match.timeoutBand); absent / null clears it
   'g.bandFocus': { bandId: nullable(isId), $optional: ['bandId'] },
   'g.buy': { slot: (v) => isInt(v, 0, 15) },
+  'g.freeOperatorPick': { chessId: isId },
   'g.refresh': {},
   'g.freeze': {},
   'g.levelUp': {},

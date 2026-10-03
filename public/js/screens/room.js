@@ -219,6 +219,7 @@ export function RoomScreen() {
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiOperatorBuff = (enabled) => run('buff', () => net.request('room.setAiOperatorBuff', { enabled }));
   const setHumanOperatorBuff = (enabled) => run('buff', () => net.request('room.setHumanOperatorBuff', { enabled }));
+  const setFreeOperatorPick = (enabled) => run('buff', () => net.request('room.setFreeOperatorPick', { enabled }));
   const leave = async () => {
     if (inFlight.current) return;
     const othersHere = facts.humans.some((s) => s.playerId !== me.playerId);
@@ -308,6 +309,16 @@ export function RoomScreen() {
         <b>${room.humanOperatorBuff ? '已开启' : '未开启'}</b>
       </label>
       <span class="room-ai-buff__desc">真人干员的最终攻击、防御、生命上限：第 1 回合 +150%，每回合减少 10 个百分点，第 15 回合起保持 +10%。在技能、盟约、装备等加成后生效。${facts.isHost ? '' : '由创建者设置。'}</span>
+    </section>
+
+    <section class="room-ai-buff room-free-pick" aria-label="免费自选干员设置">
+      <label class="room-ai-buff__toggle">
+        <input type="checkbox" checked=${room.freeOperatorPick === true}
+          disabled=${!facts.isHost || !online || !!busy}
+          onChange=${(ev) => setFreeOperatorPick(ev.currentTarget.checked)} />
+        <span>每回合免费自选干员</span><b>${room.freeOperatorPick ? '已开启' : '未开启'}</b>
+      </label>
+      <span class="room-ai-buff__desc">每名真人玩家每回合可免费自选 1 名等级不高于当前基地等级的普通干员，遵循本局禁用与共享干员池规则。${facts.isHost ? '' : '由创建者设置。'}</span>
     </section>
 
     <footer class="room-bar">

@@ -222,6 +222,7 @@ export class Match {
     this.mode = opts.mode === 'solo' ? 'solo' : 'coop';
     this.aiOperatorBuff = this.mode === 'coop' && opts.aiOperatorBuff === true;
     this.humanOperatorBuff = opts.humanOperatorBuff === true;
+    this.freeOperatorPick = opts.freeOperatorPick === true;
     this.difficulty = opts.difficulty;
     this.modeId = opts.modeId || modeIdFor(this.mode, opts.difficulty);
     this.seed = (Number(opts.seed) >>> 0) || 1;
@@ -929,6 +930,7 @@ export class Match {
       // the strategy highlighted in the draft screen (what a timed-out turn takes, timeoutBand)
       case 'g.bandFocus': return this.bandFocus(ps, msg.bandId ?? null);
       case 'g.buy': return ps.buy(msg.slot);
+      case 'g.freeOperatorPick': return ps.freeOperatorPick(msg.chessId);
       case 'g.refresh': return ps.refresh();
       case 'g.freeze': return ps.freeze();
       case 'g.levelUp': return ps.levelUp();

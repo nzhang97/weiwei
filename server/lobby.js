@@ -108,6 +108,7 @@ export class Room {
     this.difficulty = difficulty;
     this.aiOperatorBuff = false;
     this.humanOperatorBuff = false;
+    this.freeOperatorPick = false;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -154,6 +155,7 @@ export class Room {
       difficulty: this.difficulty,
       aiOperatorBuff: this.aiOperatorBuff,
       humanOperatorBuff: this.humanOperatorBuff,
+      freeOperatorPick: this.freeOperatorPick,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
@@ -261,6 +263,7 @@ export class Lobby {
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiOperatorBuff': return this.setAiOperatorBuff(session, msg);
       case 'room.setHumanOperatorBuff': return this.setHumanOperatorBuff(session, msg);
+      case 'room.setFreeOperatorPick': return this.setFreeOperatorPick(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.start': return this.start(session);
@@ -427,6 +430,21 @@ export class Lobby {
     return OK;
   }
 
+  setFreeOperatorPick(session, { enabled }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (typeof enabled !== 'boolean') return fail(ERR.BAD_MSG);
+    this.dropReplay(room, session.playerId);
+    if (room.freeOperatorPick !== enabled) {
+      room.freeOperatorPick = enabled;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
   addBot(session) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -532,6 +550,7 @@ export class Lobby {
         difficulty: room.difficulty,
         aiOperatorBuff: room.aiOperatorBuff === true,
         humanOperatorBuff: room.humanOperatorBuff === true,
+        freeOperatorPick: room.freeOperatorPick === true,
         modeId: modeIdFor(room.mode, room.difficulty),
         seats,
         seed,

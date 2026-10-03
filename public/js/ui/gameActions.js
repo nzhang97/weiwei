@@ -52,6 +52,7 @@ export const actions = {
   band: (bandId) => act('g.band', { bandId }),
   bandSkip: () => act('g.bandSkip'),
   buy: (slot) => act('g.buy', { slot }),
+  freeOperatorPick: (chessId) => act('g.freeOperatorPick', { chessId }, { sfx: 'pick' }),
   refresh: () => act('g.refresh'),
   freeze: () => act('g.freeze'),
   levelUp: () => act('g.levelUp'),
