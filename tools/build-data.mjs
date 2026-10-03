@@ -2093,7 +2093,7 @@ function buildStages(ctx, modesById) {
         if (t && !glyphTiles[g]) {
           const { bb } = flattenBB(t.blackboard);
           glyphTiles[g] = {
-            tileKey: t.tileKey, height: t.heightType === 'HIGHLAND' ? 'HIGH' : 'LOW', buildable: t.buildableType,
+            tileKey: t.tileKey, height: t.heightType === 'HIGHLAND' ? 'HIGH' : 'LOW', buildable: t.tileKey === 'tile_deepsea' ? 'NONE' : t.buildableType,
             passable: t.passableMask, groundPassable: t.passableMask === 'ALL', flyPassable: t.passableMask !== 'NONE',
             special: TILE_LEGEND[g]?.special || null, bb,
           };
@@ -2132,7 +2132,7 @@ function buildStages(ctx, modesById) {
       const melee = [], rangedOnly = [], byDevice = [];
       for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
         const t = tileAt(r, c);
-        if (!t) continue;
+        if (!t || t.tileKey === 'tile_deepsea') continue;
         const k = `${r},${c}`;
         const buildable = t.buildableType !== 'NONE';
         if (platformAt.has(k)) { rangedOnly.push([r, c]); if (buildable) byDevice.push([r, c]); continue; }

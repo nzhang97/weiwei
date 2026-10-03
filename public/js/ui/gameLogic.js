@@ -696,6 +696,13 @@ export function deployMap(stage, { deviceOverrides = {}, tileOverrides = {}, fie
     if (v === 'melee' || v === 'ranged') map.set(tileKey(r, c), v);
     else if (v === 'none') map.delete(tileKey(r, c));
   }
+  // Deep water never permits deployment, including forced tile/device overrides.
+  for (const k of map.keys()) {
+    const [r, c] = k.split(',').map(Number);
+    const [sr, sc] = fieldTile(field, r, c);
+    const t = legend[rows?.[sr]?.[sc]];
+    if (t?.tileKey === 'tile_deepsea' || t?.special === 'deepsea') map.delete(k);
+  }
   return map;
 }
 

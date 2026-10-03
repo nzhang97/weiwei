@@ -1405,6 +1405,10 @@ export class PlayerState {
       side,
       colOffset,
       units,
+      aiOperatorBuff: this.isBot && this.m.aiOperatorBuff === true,
+      // Final bonus: +150%, +140%, ... +10%; round 15 and later keep +10%.
+      humanOperatorBuffMul: !this.isBot && this.m.humanOperatorBuff === true
+        ? 1 + Math.max(10, 160 - 10 * Math.max(1, this.m.round)) / 100 : 1,
       bonds: bondSnapshot(this.bonds),
       bandId: this.bandId,
       playerEffects: this.effects.filter((e) => e.battle !== false).map((e) => ({

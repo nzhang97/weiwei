@@ -220,6 +220,8 @@ export class Match {
     this.opts = opts;
     this.roomCode = opts.roomCode ?? '----';
     this.mode = opts.mode === 'solo' ? 'solo' : 'coop';
+    this.aiOperatorBuff = this.mode === 'coop' && opts.aiOperatorBuff === true;
+    this.humanOperatorBuff = opts.humanOperatorBuff === true;
     this.difficulty = opts.difficulty;
     this.modeId = opts.modeId || modeIdFor(this.mode, opts.difficulty);
     this.seed = (Number(opts.seed) >>> 0) || 1;

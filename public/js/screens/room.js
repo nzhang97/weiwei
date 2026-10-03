@@ -217,6 +217,8 @@ export function RoomScreen() {
   const addBot = () => run('add', () => net.request('room.addBot', {}));
   const removeBot = (seat) => run(`rm${seat}`, () => net.request('room.removeBot', { seat }));
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
+  const setAiOperatorBuff = (enabled) => run('buff', () => net.request('room.setAiOperatorBuff', { enabled }));
+  const setHumanOperatorBuff = (enabled) => run('buff', () => net.request('room.setHumanOperatorBuff', { enabled }));
   const leave = async () => {
     if (inFlight.current) return;
     const othersHere = facts.humans.some((s) => s.playerId !== me.playerId);
@@ -285,6 +287,28 @@ export function RoomScreen() {
         </ul>
       </aside>`}
     </main>
+
+    ${coop ? html`<section class="room-ai-buff" aria-label="可选增益">
+      <label class="room-ai-buff__toggle">
+        <input type="checkbox" checked=${room.aiOperatorBuff === true}
+          disabled=${!facts.isHost || !online || !!busy}
+          onChange=${(ev) => setAiOperatorBuff(ev.currentTarget.checked)} />
+        <span>AI 队友强化</span>
+        <b>${room.aiOperatorBuff ? '已开启' : '未开启'}</b>
+      </label>
+      <span class="room-ai-buff__desc">AI 队友干员的最终攻击、防御、生命上限 +100%，在技能、盟约、装备等加成后再翻倍。${facts.isHost ? '' : '由创建者设置。'}</span>
+    </section>` : null}
+
+    <section class="room-ai-buff room-human-buff" aria-label="真人玩家可选增益">
+      <label class="room-ai-buff__toggle">
+        <input type="checkbox" checked=${room.humanOperatorBuff === true}
+          disabled=${!facts.isHost || !online || !!busy}
+          onChange=${(ev) => setHumanOperatorBuff(ev.currentTarget.checked)} />
+        <span>真人玩家强化</span>
+        <b>${room.humanOperatorBuff ? '已开启' : '未开启'}</b>
+      </label>
+      <span class="room-ai-buff__desc">真人干员的最终攻击、防御、生命上限：第 1 回合 +150%，每回合减少 10 个百分点，第 15 回合起保持 +10%。在技能、盟约、装备等加成后生效。${facts.isHost ? '' : '由创建者设置。'}</span>
+    </section>
 
     <footer class="room-bar">
       <div class="room-bar__left">

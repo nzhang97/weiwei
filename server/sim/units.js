@@ -30,6 +30,11 @@ export class Unit {
     }
     this.id = init.id;
     this.side = init.side;            // 'ally' | 'enemy'
+    // Applied after all flat/percentage/multiplier buffs, operators only.
+    this.aiOperatorBuff = init.aiOperatorBuff === true && init.side === 'ally' && init.kind === 'op';
+    this.humanOperatorBuffMul = init.side === 'ally' && init.kind === 'op'
+      && Number.isFinite(init.humanOperatorBuffMul) && init.humanOperatorBuffMul >= 1.1 && init.humanOperatorBuffMul <= 2.5
+      ? init.humanOperatorBuffMul : 1;
     this.kind = init.kind;            // 'op' | 'token' | 'enemy' | 'device'
     this.def = init.def;              // normalised def (chess / token / enemy / device)
     this.defId = init.defId ?? init.def?.id ?? 'unknown';
@@ -112,9 +117,10 @@ export class Unit {
     const m = (k) => mul[k] ?? 1;
     const b = this.base;
     const bHp = fin(b.maxHp, 1) > 0 ? fin(b.maxHp, 1) : 1;
-    const maxHp = Math.max(1, fin((bHp + a('hpFlat')) * Math.max(0, 1 + a('hpPct')) * m('hpMul'), bHp));
-    const atk = Math.max(0, fin((b.atk + a('atkFlat')) * Math.max(0, 1 + a('atkPct')) * m('atkMul'), fin(b.atk, 0)));
-    const def = Math.max(0, fin((b.def + a('defFlat')) * Math.max(0, 1 + a('defPct')) * m('defMul'), fin(b.def, 0)));
+    const finalMul = (this.aiOperatorBuff ? 2 : 1) * this.humanOperatorBuffMul;
+    const maxHp = Math.max(1, fin((bHp + a('hpFlat')) * Math.max(0, 1 + a('hpPct')) * m('hpMul'), bHp)) * finalMul;
+    const atk = Math.max(0, fin((b.atk + a('atkFlat')) * Math.max(0, 1 + a('atkPct')) * m('atkMul'), fin(b.atk, 0))) * finalMul;
+    const def = Math.max(0, fin((b.def + a('defFlat')) * Math.max(0, 1 + a('defPct')) * m('defMul'), fin(b.def, 0))) * finalMul;
     const res = clamp(fin((b.res + a('resFlat')) * m('resMul'), fin(b.res, 0)), 0, 100);
     const aspd = clamp(fin(b.aspd + a('aspd'), 100), ASPD_MIN, ASPD_MAX);
     const bBat = fin(b.bat, 1) > 0 ? fin(b.bat, 1) : 1;
