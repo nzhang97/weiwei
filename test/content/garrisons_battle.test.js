@@ -282,24 +282,56 @@ test('onstart (砾 143 / 瑕光 106 / 史尔特尔 107 / 锏 155): every deploy,
   assert.deepEqual(deploys('garrison_155_b', 5, self, ['yanShip', 'kjeragShip']), { yanShip: 48 }, '锏 精锐: +16, cap 48');
 });
 
-test('allyenemy_sleepstun_inrange (缇缇 125): enemies or operators entering 沉睡 / 晕眩 in range; cap 24 / 48', () => {
+test('allyenemy_sleepstun_inrange (缇缇 125): successful 沉睡 / 晕眩 applications include refreshes; cap 24 / 48', () => {
   for (const gid of idsOfKey('act2autochess_gar_event_allyenemy_sleepstun_inrange')) {
     const per = num(GR(gid).bb.bond_add_count);
     const h = battle({ units: [{ id: 'tt', g: [gid], row: 10, col: 4 }, { id: 'ally', row: 10, col: 5 }], bonds: { sargonShip: B(0), preciShip: B(0) }, enemies: [{ key: 'e_dummy', pos: [12, 9] }, { key: 'e_dummy', pos: [10, 5] }] });
     const far = h.enemies().find((e) => Math.round(e.y) === 12), near = h.enemies().find((e) => Math.round(e.y) === 10);
+    h.b.applyStatus(h.unit('ally'), 'slumber', { duration: 1 });
+    h.b.applyStatus(near, 'slumber', { duration: 1 });
+    expectAll(h, ['sargonShip', 'preciShip'], 0, `${gid}: slumber is not sleep or stun`);
     h.b.applyStatus(h.unit('ally'), 'sleep', { duration: 1 });
     expectAll(h, ['sargonShip', 'preciShip'], per, `${gid}: an operator in range fell asleep`);
     h.b.applyStatus(far, 'stun', { duration: 1 });
     expectAll(h, ['sargonShip', 'preciShip'], per, `${gid}: enemy out of range`);
     h.b.applyStatus(near, 'stun', { duration: 5 });
     h.b.applyStatus(near, 'stun', { duration: 5 });
-    expectAll(h, ['sargonShip', 'preciShip'], 2 * per, `${gid}: a stun refresh is not a new entry`);
-    for (let i = 0; i < 40; i++) { h.b.removeStatus(near, 'stun'); h.b.applyStatus(near, 'stun', { duration: 1 }); }
+    expectAll(h, ['sargonShip', 'preciShip'], 3 * per, `${gid}: both the first stun and its refresh count`);
+    h.b.applyStatus(near, 'sleep', { duration: 5 });
+    h.b.applyStatus(near, 'sleep', { duration: 5 });
+    expectAll(h, ['sargonShip', 'preciShip'], 5 * per, `${gid}: both the first sleep and its refresh count`);
+    for (let i = 0; i < 40; i++) h.b.applyStatus(near, 'stun', { duration: 1 });
     expectAll(h, ['sargonShip', 'preciShip'], capOf(gid), `${gid}: cap`);
     cover(gid);
   }
   assert.equal(capOf('garrison_125_a'), 24);
   assert.equal(capOf('garrison_125_b'), 48);
+});
+
+test('allyenemy_sleepstun_inrange (缇缇 125): immune targets, inactive bonds, and an off-field holder gain nothing', () => {
+  for (const gid of ['garrison_125_a', 'garrison_125_b']) {
+    const per = num(GR(gid).bb.bond_add_count);
+    const h = battle({
+      units: [{ id: 'tt', g: [gid], row: 10, col: 4 }],
+      bonds: { sargonShip: B(0), preciShip: B(0, false) },
+      edefs: { e_immune: dummy({ key: 'e_immune', immunities: { sleep: true, stun: true } }) },
+      enemies: [{ key: 'e_dummy', pos: [10, 5] }, { key: 'e_immune', pos: [10, 5] }],
+    });
+    const [near, immune] = h.enemies();
+    for (const status of ['sleep', 'stun']) {
+      assert.equal(h.b.applyStatus(immune, status, { duration: 1 }), false, `${gid}: immune ${status}`);
+      assert.equal(h.b.applyStatus(near, status, { duration: 0 }), false, `${gid}: rejected ${status}`);
+    }
+    expectAll(h, ['sargonShip'], 0, `${gid}: unsuccessful applications do not count`);
+    h.b.applyStatus(near, 'sleep', { duration: 1 });
+    h.b.applyStatus(near, 'sleep', { duration: 1 });
+    expectAll(h, ['sargonShip'], 2 * per, `${gid}: only the active bond gains layers`);
+    h.b.retreat(h.unit('tt'), { permanent: true });
+    h.b.applyStatus(near, 'sleep', { duration: 1 });
+    h.b.applyStatus(near, 'stun', { duration: 1 });
+    expectAll(h, ['sargonShip'], 2 * per, `${gid}: an off-field holder cannot gain layers`);
+    checkInvariants(h.b);
+  }
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

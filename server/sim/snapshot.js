@@ -46,7 +46,7 @@ export function flagsOf(u) {
   const f = u.s.flags;
   let bits = 0;
   if (u.side === 'enemy' ? !!u.blockedBy : u.blocking.length > 0) bits |= UF.BLOCKED;
-  if (f.stun && !f.freeze && !f.sleep) bits |= UF.STUNNED;
+  if (f.stun && !f.freeze && !f.sleep && !f.slumber) bits |= UF.STUNNED;
   if (f.freeze) bits |= UF.FROZEN;
   // 隐匿 or 迷彩 (buffs.js camou): both shown the see-through way, blocking or not (targeting.js canTargetAlly)
   if (f.stealth || f.camou) bits |= UF.STEALTH;
@@ -54,7 +54,7 @@ export function flagsOf(u) {
   if (u.s.shield > 0 || u.buffs.some((b) => b.shieldHits > 0)) bits |= UF.SHIELD;
   if (f.invulnerable) bits |= UF.INVULN;
   if (f.cold) bits |= UF.COLD;
-  if (f.sleep) bits |= UF.SLEEP;
+  if (f.sleep || f.slumber) bits |= UF.SLEEP;
   if (u.motion === 'FLY') bits |= UF.FLYING;
   return bits;
 }

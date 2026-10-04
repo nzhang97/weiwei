@@ -88,7 +88,7 @@ test('缇缇 S3: ATK +110 %, 2 targets, sleep on hit, wake-up burst (×max scale
   // ally sleep guard: lethal damage on an ally in range → asleep instead of dead
   const a = h.unit('t_ally');
   h.b.dealDamage(null, a, { amount: 1e9, type: 'true' });
-  assert.ok(a.alive && a.hasBuff('titi:allySleep') && a.s.flags.sleep);
+  assert.ok(a.alive && a.hasBuff('titi:allySleep') && a.s.flags.slumber);
   h.b.dealDamage(null, a, { amount: 1e9, type: 'true' });
   assert.ok(a.alive, 'still protected while asleep');
   a.hp = a.s.maxHp;

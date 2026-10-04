@@ -202,7 +202,7 @@ test('缇缇 S1 缓蚀: ATK +, each attack sleeps the target attack@sleep s with
   }
 });
 
-test('缇缇 S2 封护: no attacks; she and the lowest-HP op in range sleep (invulnerable) until the end; enemies around them sleep; T1 ×talent_scale', () => {
+test('缇缇 S2 封护: no attacks; she and the lowest-HP op in range slumber (invulnerable) until the end; enemies around them sleep; T1 ×talent_scale', () => {
   for (const id of pair('02')) {
     const h = run({
       defs: { enemies: { enemy_dummy: dummy('enemy_dummy') }, chess: { t_hurt: ally('t_hurt'), t_fine: ally('t_fine') } },
@@ -219,9 +219,9 @@ test('缇缇 S2 封护: no attacks; she and the lowest-HP op in range sleep (inv
     const atk0 = u.s.atk;
     cast(h, u);
     approx(u.s.atk, atk0 * (1 + bb.atk));
-    assert.ok(u.findBuff('titi:ward') && u.s.flags.sleep, 'she sleeps');
-    assert.ok(hurt.findBuff('titi:ward') && hurt.s.flags.sleep, 'the lowest-HP op sleeps');
-    assert.ok(!fine.findBuff('titi:ward'));
+    assert.ok(u.s.flags.slumber, 'she slumbers');
+    assert.ok(hurt.s.flags.slumber, 'the lowest-HP op slumbers');
+    assert.ok(!fine.s.flags.slumber);
     h.b.dealDamage(null, hurt, { amount: 1e9, type: 'true' });
     assert.ok(hurt.alive, 'asleep = invulnerable');
     h.run(1.2);
@@ -232,7 +232,7 @@ test('缇缇 S2 封护: no attacks; she and the lowest-HP op in range sleep (inv
     approx(dream.at(-1).amount, u.s.atk * t0.damage_atk_scale * bb.talent_scale, 'T1 ×talent_scale');
     assert.ok(h.runUntil(() => !u.skill.active, 30));
     assert.equal(during(h, u, attacks(h, u)).length, 0, 'no attacks during the skill');
-    assert.ok(!u.findBuff('titi:ward') && !hurt.findBuff('titi:ward'), 'both wake at the end');
+    assert.ok(!u.s.flags.slumber && !hurt.s.flags.slumber, 'both wake at the end');
     done(h);
   }
 });

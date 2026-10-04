@@ -12,9 +12,9 @@
 //                       dollkeeper flag unit.trait.doll) · _consume_ammo (ammoUsed; range_id 0-1 self, 1-1 front tile,
 //                       x-5 self + 4 adjacent, pooled counter) · _enemy_abflag_inrange (an enemy in range ENTERS
 //                       'freeze', × prob) · act2autochess_gar_event_onstart (every deploy) ·
-//                       act2autochess_gar_event_allyenemy_sleepstun_inrange (an enemy or operator in range ENTERS
-//                       sleep / stun). "进入…时": re-applying a running status (a refresh) is not a new entry
-//                       (engine statusApplied ctx.entered). Targets: bond_by_id / bond_self (own active bonds) / bond_actived_maxstack;
+//                       act2autochess_gar_event_allyenemy_sleepstun_inrange (sleep / stun successfully applied to an
+//                       enemy or operator in range, including refreshes). Only the freeze event requires ctx.entered.
+//                       Targets: bond_by_id / bond_self (own active bonds) / bond_actived_maxstack;
 //                       amounts: by_count / by_charcount_samerow / by_charlevel; conditions character_same_row /
 //                       character_same_col (≥ check_count incl. self). Gains go through support.gainLayers with
 //                       reason 'garrison', source = the trait's owner, cap = max_add_count_per_battle per (instance, bond).
@@ -309,8 +309,10 @@ const INSTALLERS = {
   },
 
   act2autochess_gar_event_allyenemy_sleepstun_inrange(battle, list) {
-    battle.on('statusApplied', ({ target, status, entered }) => { // "进入沉睡/晕眩时": new entries only (ctx.entered)
-      if (!target || (status !== 'sleep' && status !== 'stun') || !entered) return;
+    // User-reported original-game behavior: Titi S2 rapidly reaches the 24 / 48 per-battle cap.
+    // Count successful applications here, without changing the engine's entry semantics for other traits.
+    battle.on('statusApplied', ({ target, status }) => {
+      if (!target || (status !== 'sleep' && status !== 'stun')) return;
       if (!(target.side === 'enemy' || (target.side === 'ally' && target.kind === 'op'))) return;
       for (const it of list) if (S.onField(it.unit) && S.inRange(it.unit, target)) fireGain(battle, it);
     });

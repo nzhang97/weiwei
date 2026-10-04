@@ -30,7 +30,7 @@ export const MUL_KEYS = Object.freeze([
 ]);
 /** Boolean flag keys (OR). `taunt` is also accepted as a numeric mod. */
 export const FLAG_KEYS = Object.freeze([
-  'stun', 'freeze', 'sleep', 'silence', 'disarm', 'stealth', 'invulnerable', 'unblockable', 'levitate', 'fear',
+  'stun', 'freeze', 'sleep', 'slumber', 'silence', 'disarm', 'stealth', 'invulnerable', 'unblockable', 'levitate', 'fear',
   'cold', 'reveal', 'bind', 'noHeal', 'untargetable', 'blockFly', 'noMove', 'noSp', 'burstLock', 'hidden',
   'noBlock', 'tremble', 'hitCount', 'hitCountArts', 'attract', 'float', 'noDisplace', 'isolated', 'camou',
 ]);
@@ -49,6 +49,8 @@ export const STATUS = Object.freeze({
   cold: { flags: { cold: true }, mods: { aspd: COLD_ASPD } },
   // 沉睡: 无敌且无法行动 (untargetable, takes no damage — except from `hitSleep` attackers — and blocks nothing)
   sleep: { flags: { sleep: true, noBlock: true }, immune: 'sleep' },
+  // 小睡 (DOZE) has its own status: invulnerability cannot be bypassed by `hitSleep`.
+  slumber: { flags: { slumber: true, noBlock: true, disarm: true, invulnerable: true } },
   // value = fraction of speed removed (0.8 ⇒ moveMul 0.2). Default 0.5.
   slow: { mods: (v) => ({ moveMul: 1 - clamp01(v ?? 0.5) }), valued: 0.5 },
   // 停顿 (sluggish): −80 % move speed.
@@ -113,7 +115,7 @@ export const STATUS = Object.freeze({
  * official term lists 晕眩/寒冷/冻结/恐惧/诱导…; the rest follow the operator kits that grant 抵抗 [ASSUMED]. 麻痹 is
  * stack-based: it decays instead (RESIST_PALSY_DECAY).
  */
-export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 'sleep', 'fear', 'tremble', 'attract', 'levitate',
+export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 'sleep', 'slumber', 'fear', 'tremble', 'attract', 'levitate',
   'bind', 'silence', 'disarm', 'sluggish', 'slow']));
 
 /** Statuses that should be reported to clients as `['status', id, key, on]`. */
