@@ -224,7 +224,10 @@ test('a sliced rehearsal is dropped when the prep ends first; the default layout
 
 test('economy: the bot fills the board first (8 units by round 4), levels on its curve and keeps a hand slot free', () => {
   for (const seed of [5, 8]) {
-    const h = soloBot({ seed }).start();
+    // Fix a strategy without free recruits/discounts: this test isolates the spending curve.
+    const h = soloBot({ seed });
+    h.m.bandTaken = (id) => id !== 'band_bldsk';
+    h.start();
     const m = h.m;
     const ps = m.order[0];
     h.run(() => m.phase === PHASE.PREP && m.round === 1);
@@ -317,7 +320,7 @@ test('merge rewards: a merge completed while buying is followed by taking its fr
   m.dispose();
 });
 
-test('band pick: alone, the bot avoids a band that withholds the first rounds\' funds (老鲤); in co-op it may take it', () => {
+test('band pick: without allies, both solo and one-seat co-op avoid withholding early funds (老鲤)', () => {
   const counts = { solo: 0, coop: 0 };
   for (let seed = 1; seed <= 60; seed++) {
     for (const mode of ['solo', 'coop']) {
@@ -327,5 +330,5 @@ test('band pick: alone, the bot avoids a band that withholds the first rounds\' 
     }
   }
   assert.ok(counts.solo <= 1, `solo picks 老鲤 ${counts.solo}/60`);
-  assert.ok(counts.coop >= 1, `co-op may pick it (${counts.coop}/60)`);
+  assert.ok(counts.coop <= 1, `one-seat co-op has no allies to cover it (${counts.coop}/60)`);
 });

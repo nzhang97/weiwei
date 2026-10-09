@@ -35,6 +35,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Grid } from '../server/sim/grid.js';
+import { correctContentDescriptions } from './content-text.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -2830,6 +2831,7 @@ async function main() {
   const choices = buildChoices(ctx, effects, items, chess);
   const config = buildConfig(ctx, waves, stages, bands);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens };
+  correctContentDescriptions(files);
 
   const errors = validateAll(files);
   let total = 0;

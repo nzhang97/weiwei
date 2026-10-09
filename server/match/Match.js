@@ -221,6 +221,7 @@ export class Match {
     this.roomCode = opts.roomCode ?? '----';
     this.mode = opts.mode === 'solo' ? 'solo' : 'coop';
     this.aiOperatorBuff = this.mode === 'coop' && opts.aiOperatorBuff === true;
+    this.aiRound34Nerf = this.mode === 'coop' && opts.aiRound34Nerf === true;
     this.humanOperatorBuff = opts.humanOperatorBuff === true;
     this.freeOperatorPick = opts.freeOperatorPick === true;
     this.difficulty = opts.difficulty;
@@ -2323,7 +2324,7 @@ export class Match {
     const f = this._fieldByBattle(msg.battleId);
     if (!f || f.done || f.heldResult || f.mode !== 'client' || f.authority !== ps.playerId) return OK;
     const bossLike = f.kind === 'boss' || f.kind === 'hidden';
-    const v = validateClientResult(f.spec, msg.result, { gd: this.gd });
+    const v = validateClientResult(f.spec, msg.result, { gd: this.gd, verifyLayerOverflow: !bossLike });
     if (!v.ok) {
       this.verifyStats.rejected++;
       this.log.warn?.(`[match ${this.roomCode}] ${f.fieldId}: rejected client result from ${ps.playerId} (${v.reason}) — server re-simulation`);
@@ -2367,7 +2368,7 @@ export class Match {
       }
       this._bossResultDamage(f, result);
     } else {
-      result = this._verifyResult(f, result);
+      result = this._verifyResult(f, result, { force: v.requiresLayerVerification });
     }
     f.result = result;
     f.resultSource = 'client';
@@ -2384,9 +2385,10 @@ export class Match {
   /**
    * SP_VERIFY: re-simulate an accepted client result ('all': now, the server's result wins on a mismatch; 'sample':
    * ~1 battle in 8 in a later callback, mismatches are only logged).
+   * Legitimate layer growth beyond the cheap estimate forces verification even with SP_VERIFY=off.
    */
-  _verifyResult(f, result) {
-    if (this.verifyMode === 'off') return result;
+  _verifyResult(f, result, { force = false } = {}) {
+    if (this.verifyMode === 'off' && !force) return result;
     const check = () => {
       const run = runHeadless(this._specBattle(f.spec), { players: f.players });
       const mine = validateClientResult(f.spec, compactForVerify(run.result), { gd: this.gd });
@@ -2399,7 +2401,7 @@ export class Match {
       }
       return null;
     };
-    if (this.verifyMode === 'all') return check() || result;
+    if (force || this.verifyMode === 'all') return check() || result;
     let h = 0;
     for (let i = 0; i < f.battleId.length; i++) h = (h * 31 + f.battleId.charCodeAt(i)) >>> 0;
     if (h % 8 === 0) this.later(0, () => { try { check(); } catch (e) { this.reportError('verify', e); } });

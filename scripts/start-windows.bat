@@ -8,9 +8,11 @@ setlocal EnableExtensions
 title 卫戍协议：盟约 - Stronghold Protocol
 cd /d "%~dp0.."
 
-where node >nul 2>nul
-if errorlevel 1 goto :nonode
-node -e "process.exit(Number(process.versions.node.split('.')[0])>=22?0:1)"
+set "NODE_EXE="
+for /f "usebackq delims=" %%N in (`""%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0resolve-node.ps1" -PathOnly"`) do set "NODE_EXE=%%N"
+if not defined NODE_EXE goto :nonode
+for %%D in ("%NODE_EXE%") do set "PATH=%%~dpD;%PATH%"
+"%NODE_EXE%" -e "process.exit(Number(process.versions.node.split('.')[0])>=22?0:1)"
 if errorlevel 1 goto :oldnode
 
 if not exist "node_modules\ws\package.json" (
@@ -19,7 +21,7 @@ if not exist "node_modules\ws\package.json" (
   if errorlevel 1 goto :fail
 )
 
-node scripts\launch.mjs %*
+"%NODE_EXE%" scripts\launch.mjs %*
 if errorlevel 1 goto :fail
 exit /b 0
 
@@ -38,7 +40,7 @@ exit /b 1
 
 :oldnode
 echo.
-for /f "delims=" %%v in ('node -v') do echo 当前 Node.js 版本 %%v 太旧，需要 22 或更高（22 / 24 LTS）。
+for /f "delims=" %%v in ('""%NODE_EXE%" -v"') do echo 当前 Node.js 版本 %%v 太旧，需要 22 或更高（22 / 24 LTS）。
 echo   升级：winget upgrade OpenJS.NodeJS.LTS   或   https://nodejs.org/zh-cn/download
 echo.
 pause

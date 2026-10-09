@@ -197,7 +197,7 @@ test('bot: the planner turns a ranged unit toward the enemy path (and keeps RIGH
   const { m, ps } = prepMatch({ seed: 15 });
   // a synthetic round: one ground route along row 10 (right → left); the only legal tile is (11,6) off the road
   m._botPath = null;
-  const key = `${m.round}|${m.stageId}|${m.wave ? m.wave.templateId : 'boss'}|`;
+  const key = fieldModel(m, ps).key;
   const tiles = ['10,10', '10,9', '10,8', '10,7', '10,6', '10,5', '10,4', '10,3'];
   const index = new Map(tiles.map((k, i) => [k, [[0, i]]]));
   const ground = new Map(tiles.map((k, i) => [k, { flow: 5, prog: i / (tiles.length - 1) }]));

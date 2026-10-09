@@ -107,6 +107,7 @@ export class Room {
     this.mode = mode;
     this.difficulty = difficulty;
     this.aiOperatorBuff = false;
+    this.aiRound34Nerf = false;
     this.humanOperatorBuff = false;
     this.freeOperatorPick = false;
     /** @type {string | null} */
@@ -154,6 +155,7 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       aiOperatorBuff: this.aiOperatorBuff,
+      aiRound34Nerf: this.aiRound34Nerf,
       humanOperatorBuff: this.humanOperatorBuff,
       freeOperatorPick: this.freeOperatorPick,
       inMatch: !!this.match,
@@ -262,6 +264,7 @@ export class Lobby {
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiOperatorBuff': return this.setAiOperatorBuff(session, msg);
+      case 'room.setAiRound34Nerf': return this.setAiRound34Nerf(session, msg);
       case 'room.setHumanOperatorBuff': return this.setHumanOperatorBuff(session, msg);
       case 'room.setFreeOperatorPick': return this.setFreeOperatorPick(session, msg);
       case 'room.addBot': return this.addBot(session);
@@ -415,6 +418,21 @@ export class Lobby {
     return OK;
   }
 
+  setAiRound34Nerf(session, { enabled }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (room.mode !== 'coop' || typeof enabled !== 'boolean') return fail(ERR.BAD_MSG);
+    this.dropReplay(room, session.playerId);
+    if (room.aiRound34Nerf !== enabled) {
+      room.aiRound34Nerf = enabled;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
   setHumanOperatorBuff(session, { enabled }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -549,6 +567,7 @@ export class Lobby {
         mode: room.mode,
         difficulty: room.difficulty,
         aiOperatorBuff: room.aiOperatorBuff === true,
+        aiRound34Nerf: room.aiRound34Nerf === true,
         humanOperatorBuff: room.humanOperatorBuff === true,
         freeOperatorPick: room.freeOperatorPick === true,
         modeId: modeIdFor(room.mode, room.difficulty),

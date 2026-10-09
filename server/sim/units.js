@@ -32,6 +32,7 @@ export class Unit {
     this.side = init.side;            // 'ally' | 'enemy'
     // Applied after all flat/percentage/multiplier buffs, operators only.
     this.aiOperatorBuff = init.aiOperatorBuff === true && init.side === 'ally' && init.kind === 'op';
+    this.aiRound34Nerf = init.aiRound34Nerf === true && init.side === 'ally' && init.kind === 'op';
     this.humanOperatorBuffMul = init.side === 'ally' && init.kind === 'op'
       && Number.isFinite(init.humanOperatorBuffMul) && init.humanOperatorBuffMul >= 1.1 && init.humanOperatorBuffMul <= 2.5
       ? init.humanOperatorBuffMul : 1;
@@ -117,7 +118,7 @@ export class Unit {
     const m = (k) => mul[k] ?? 1;
     const b = this.base;
     const bHp = fin(b.maxHp, 1) > 0 ? fin(b.maxHp, 1) : 1;
-    const finalMul = (this.aiOperatorBuff ? 2 : 1) * this.humanOperatorBuffMul;
+    const finalMul = (this.aiOperatorBuff ? 2 : 1) * this.humanOperatorBuffMul * (this.aiRound34Nerf ? 0.2 : 1);
     const maxHp = Math.max(1, fin((bHp + a('hpFlat')) * Math.max(0, 1 + a('hpPct')) * m('hpMul'), bHp)) * finalMul;
     const atk = Math.max(0, fin((b.atk + a('atkFlat')) * Math.max(0, 1 + a('atkPct')) * m('atkMul'), fin(b.atk, 0))) * finalMul;
     const def = Math.max(0, fin((b.def + a('defFlat')) * Math.max(0, 1 + a('defPct')) * m('defMul'), fin(b.def, 0))) * finalMul;

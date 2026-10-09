@@ -236,6 +236,7 @@ export const C2S = {
   'room.ready': { ready: isBool },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
   'room.setAiOperatorBuff': { enabled: isBool },
+  'room.setAiRound34Nerf': { enabled: isBool },
   'room.setHumanOperatorBuff': { enabled: isBool },
   'room.setFreeOperatorPick': { enabled: isBool },
   'room.addBot': {},

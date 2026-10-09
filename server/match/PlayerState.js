@@ -1426,6 +1426,8 @@ export class PlayerState {
       colOffset,
       units,
       aiOperatorBuff: this.isBot && this.m.aiOperatorBuff === true,
+      aiRound34Nerf: this.isBot && this.m.aiRound34Nerf === true
+        && (this.m.round === 3 || this.m.round === 4),
       // Final bonus: +150%, +140%, ... +10%; round 15 and later keep +10%.
       humanOperatorBuffMul: !this.isBot && this.m.humanOperatorBuff === true
         ? 1 + Math.max(10, 160 - 10 * Math.max(1, this.m.round)) / 100 : 1,

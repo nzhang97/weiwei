@@ -290,6 +290,7 @@ export class Battle {
     const u = new Unit({
       id: ++this._idSeq, side: 'ally', kind, def, defId: def.id, name: def.name, ownerId: ps ? ps.playerId : null,
       aiOperatorBuff: kind === 'op' && ps?.input?.aiOperatorBuff === true,
+      aiRound34Nerf: kind === 'op' && ps?.input?.aiRound34Nerf === true,
       humanOperatorBuffMul: kind === 'op' ? ps?.input?.humanOperatorBuffMul : 1,
       uid: extra.uid ?? null, ownerUnit: extra.ownerUnit ?? null, x: c, y: r, tileR: r, tileC: c,
       dir: extra.dir != null ? normDir(extra.dir) : extra.facing != null ? normDir(extra.facing) : ps ? ps.dir : 'RIGHT',

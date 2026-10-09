@@ -686,13 +686,16 @@ const sameMods = (a, b) => {
  * `counted: false` only for enemies that never count (data notCountInTotal, countInTotal false, boss / part entries,
  * content spawns); 联防: leaks + never-spawned re-entries per (enemy, leaker) ≤ what that leaker sent in, and a split /
  * summon only on a leaker who sent in its parent, ≤ the parents' data offspring count (offspringPerParent); per-bond layer
- * gains ≤ 60 + 4·round and ≤ the room left under BOND_LAYER_CAP (999) from the bond's starting layers, only on bonds the
+ * gains ≤ the room left under BOND_LAYER_CAP (999) from the bond's starting layers, only on bonds the
  * player's lineup / band / effects / items name, none when the spec disables gains; coins ≤ the spawns' bounty coins;
  * perfect consistent with the counted leaks; unit states only for the player's own units, within range.
- * @returns {{ ok: true, result: object } | { ok: false, reason: string }}
+ * By default gains above 60 + 4·round are rejected. A caller may opt into verifyLayerOverflow only if it synchronously
+ * verifies flagged results against a server simulation before accepting any gains.
+ * @returns {{ ok: true, result: object, requiresLayerVerification: boolean } | { ok: false, reason: string }}
  */
-export function validateClientResult(spec, raw, { gd = null } = {}) {
+export function validateClientResult(spec, raw, { gd = null, verifyLayerOverflow = false } = {}) {
   const bad = (reason) => ({ ok: false, reason });
+  let requiresLayerVerification = false;
   try {
     if (!spec || !raw || typeof raw !== 'object' || !raw.perPlayer || typeof raw.perPlayer !== 'object') return bad('shape');
     const B = specBounds(spec, gd);
@@ -770,8 +773,12 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       if (typeof p.perfect !== 'boolean' || p.perfect !== (countedLeaks === 0)) return bad('perfect');
       const layerGains = {};
       for (const [bondId, n] of Object.entries(p.layerGains || {})) {
-        // ≤ 60 + 4·round, and never past BOND_LAYER_CAP from the layers the bond started with (Battle.addLayers clamps)
-        if (!finiteIn(n, 0, Math.min(B.layerCap, layerGainRoom(own.startLayers.get(bondId) || 0, Infinity)))) return bad('layer bound');
+        // The per-round estimate is a verification threshold, not a combat rule. Never exceed the real cap.
+        if (!finiteIn(n, 0, layerGainRoom(own.startLayers.get(bondId) || 0, Infinity))) return bad('layer bound');
+        if (n > B.layerCap) {
+          if (!verifyLayerOverflow) return bad('layer bound');
+          requiresLayerVerification = true;
+        }
         if (n > 0 && spec.flags && spec.flags.layerGainsEnabled === false) return bad('layers disabled');
         if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('bond');
         if (n > 0 && own.bonds && !own.bonds.has(bondId)) return bad('layer bond');
@@ -826,7 +833,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       if (unspawned.length > B.spawnCount) return bad('unspawned');
       if (unspawned.length) result.unspawned = unspawned;
     }
-    return { ok: true, result };
+    return { ok: true, result, requiresLayerVerification };
   } catch (e) {
     return bad(`exception: ${e && e.message}`);
   }

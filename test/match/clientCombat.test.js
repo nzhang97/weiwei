@@ -121,7 +121,7 @@ test('validation: implausible client results are rejected and replaced by the se
     ['coins beyond the bounties', (r) => { for (const p of Object.values(r.perPlayer)) p.coins = 999; return r; }],
     ['a leak of an enemy that never spawned', (r) => { const p = Object.values(r.perPlayer)[0]; p.leaked.push({ enemyKey: 'enemy_1502_crowns', mods: null, lpr: 1, sourcePlayerId: null, tag: null, counted: true }); p.perfect = false; return r; }],
     ['perfect despite counted leaks', (r, spec) => { const p = Object.values(r.perPlayer)[0]; p.leaked = [{ enemyKey: spec.spawns[0].enemyKey, counted: true }]; p.perfect = true; return r; }],
-    ['layer gains above the bound', (r) => { for (const p of Object.values(r.perPlayer)) p.layerGains = { yanShip: 500 }; return r; }],
+    ['layer gains above the real cap', (r) => { for (const p of Object.values(r.perPlayer)) p.layerGains = { yanShip: 1000 }; return r; }],
     ['a player who is not in the battle', (r) => { r.perPlayer.ghost = { ...Object.values(r.perPlayer)[0] }; return r; }],
   ];
   for (const [name, tamper] of cases) {

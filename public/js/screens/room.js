@@ -218,6 +218,7 @@ export function RoomScreen() {
   const removeBot = (seat) => run(`rm${seat}`, () => net.request('room.removeBot', { seat }));
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiOperatorBuff = (enabled) => run('buff', () => net.request('room.setAiOperatorBuff', { enabled }));
+  const setAiRound34Nerf = (enabled) => run('buff', () => net.request('room.setAiRound34Nerf', { enabled }));
   const setHumanOperatorBuff = (enabled) => run('buff', () => net.request('room.setHumanOperatorBuff', { enabled }));
   const setFreeOperatorPick = (enabled) => run('buff', () => net.request('room.setFreeOperatorPick', { enabled }));
   const leave = async () => {
@@ -298,6 +299,17 @@ export function RoomScreen() {
         <b>${room.aiOperatorBuff ? '已开启' : '未开启'}</b>
       </label>
       <span class="room-ai-buff__desc">AI 队友干员的最终攻击、防御、生命上限 +100%，在技能、盟约、装备等加成后再翻倍。${facts.isHost ? '' : '由创建者设置。'}</span>
+    </section>` : null}
+
+    ${coop ? html`<section class="room-ai-buff" aria-label="AI 第3、4回合弱化设置">
+      <label class="room-ai-buff__toggle">
+        <input type="checkbox" checked=${room.aiRound34Nerf === true}
+          disabled=${!facts.isHost || !online || !!busy || room.inMatch}
+          onChange=${(ev) => setAiRound34Nerf(ev.currentTarget.checked)} />
+        <span>AI 第3、4回合弱化</span>
+        <b>${room.aiRound34Nerf ? '已开启' : '未开启'}</b>
+      </label>
+      <span class="room-ai-buff__desc">仅第 3、4 回合：AI 队友干员的攻击、防御、生命上限在所有其他加成后降至 20%，真人不变。${facts.isHost ? '' : '由创建者设置。'}</span>
     </section>` : null}
 
     <section class="room-ai-buff room-human-buff" aria-label="真人玩家可选增益">

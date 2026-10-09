@@ -23,10 +23,7 @@ function Pause-Exit([int]$code) {
 }
 
 function Test-Node {
-  $cmd = Get-Command node -ErrorAction SilentlyContinue
-  if (-not $cmd) { return $null }
-  $v = (& node -v) -replace '^v', ''
-  return [pscustomobject]@{ Path = $cmd.Source; Version = $v; Major = [int]($v.Split('.')[0]) }
+  & (Join-Path $PSScriptRoot 'resolve-node.ps1')
 }
 
 $node = Test-Node
@@ -53,6 +50,7 @@ if ($node.Major -lt 22) {
   Write-Host "Node.js $($node.Version) 太旧，需要 22 或更高：winget upgrade OpenJS.NodeJS.LTS  或  https://nodejs.org/zh-cn/download" -ForegroundColor Red
   Pause-Exit 1
 }
+$env:Path = (Split-Path -Parent $node.Path) + ';' + $env:Path
 
 if (-not (Test-Path (Join-Path $Root 'node_modules\ws\package.json'))) {
   Write-Host '[首次运行] 正在安装依赖 npm ci ...' -ForegroundColor Cyan
@@ -66,7 +64,7 @@ if (-not (Test-Path (Join-Path $Root 'node_modules\ws\package.json'))) {
 $launchArgs = @('scripts\launch.mjs')
 if ($Port -gt 0) { $launchArgs += @('--port', "$Port") }
 if ($Rest) { $launchArgs += $Rest }
-& node @launchArgs
+& $node.Path @launchArgs
 if ($LASTEXITCODE -ne 0) {
   Write-Host "`n启动失败，请查看上面的错误信息。诊断：node tools\doctor.mjs" -ForegroundColor Red
   Pause-Exit $LASTEXITCODE
