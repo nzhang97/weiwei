@@ -51,6 +51,7 @@ import { resolveProfile } from '../sim/professions.js';
 import { withBounties } from './waves.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
 import { makeCtx } from './effectsMeta.js';
+import { relayCarryValue, relayUpgradeWanted, createRelayRehearsal, relayDefenseValue } from './botTeam.js';
 import { bandScore, bandBonds, corePlan, coreReserveValue, coreUpgradeWanted, economyRecruitValue, garrisons, lineupState, layerValue, traitValue, recurringValue, combatBondValue, combatRecord, benchValue, refreshValue, bestEquipmentTarget } from './botStrategy.js';
 
 /**
@@ -738,12 +739,14 @@ function countedLeaks(battle, playerId) {
  * Rehearsal job: a player "tries out" candidate layouts — each distinct plan (up to m.botRehearsal) is simulated once
  * against the round's enemies with the real Battle (a rehearsal seed, never the real battle's; only the read-only
  * combat-context handler runs, so it has no side effect on the match). Prefer fewer counted leaks, then more kills,
- * then useful persistent layer gains when another round remains.
- * Every candidate's Battle is built right away (each layout is on the board only while its input is taken; the board
+ * then useful persistent layer gains when another round remains. Three-AI relay teams also compare remaining
+ * HP and a bounded single-helper escape-route trial, only after a perfect own-field result.
+ * Every normal candidate's Battle is built right away (each layout is on the board only while its input is taken; the board
  * is restored exactly before this returns), so the job can be stepped later: `job.run(budgetMs)` simulates until the
  * wall-clock budget is used (checked every 4 ticks) and returns true once every candidate is done. A candidate whose
  * counted leaks already exceed the best finished one's stops early (it can no longer win).
- * A whole rehearsal is 0.2–1 s of CPU late in a 4-bot match: Match runs it in bounded slices between other callbacks.
+ * Relay trials are created from saved inputs after normal combat, with no live-board mutation. Match steps
+ * normal and relay simulations under the same slice budget between other callbacks.
  * @returns {null | { chosen: any[], plans: Array<Map<number, string>>, best: Map<number, string>, done: boolean, run: (budgetMs?: number) => boolean }}
  *   null when there is nothing to compare (no wave, < 2 distinct plans, rehearsal off)
  */
@@ -764,6 +767,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
   const byUid = new Map(ps.allChess().concat(chosen).map((p) => [p.uid, p]));
   const battles = [];
   const candidateBonds = [];
+  const candidateInputs = [];
   for (const plan of cands) {
     const saved = [...ps.board.entries()];
     const savedHand = ps.hand.slice();
@@ -793,6 +797,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
         flags: { layerGainsEnabled: true, ...m.gd.dp }, fieldId: `r:${ps.playerId}`, enemyOverrides: wave.overrides, waveId: wave.templateId,
       }));
       candidateBonds.push(input.bonds);
+      candidateInputs.push(structuredClone(input));
     } catch (e) {
       failed = true;
       m.log.warn?.(`[match ${m.roomCode}] bot rehearsal failed: ${e && e.message}`);
@@ -812,6 +817,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
   let t = 0;
   let bestScore = -Infinity;
   let bestLeaks = Infinity;
+  let relayPending = null;
   const job = {
     chosen,
     plans: cands,
@@ -832,25 +838,31 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
             battle.step();
             t++;
             n++;
-            if ((t & 63) === 0 && bestLeaks < Infinity && countedLeaks(battle, ps.playerId) > bestLeaks) { beaten = true; break; }
+            if (!relayPending && (t & 63) === 0 && bestLeaks < Infinity && countedLeaks(battle, ps.playerId) > bestLeaks) { beaten = true; break; }
             if (timed && (n & 3) === 0 && performance.now() - t0 >= budgetMs) return false;
           }
           if (!beaten) {
             if (!battle.finished) battle.forceEnd('timeout');
             const r = battle.result();
             const pp = r && !r.synthetic && r.perPlayer && r.perPlayer[ps.playerId];
-            if (pp) {
+            if (relayPending) {
+              const score = relayPending.score + relayDefenseValue(r, relayPending.count);
+              if (score > bestScore) { bestScore = score; bestLeaks = 0; job.best = cands[i]; job.chosen = [...cands[i].keys()].map((uid) => byUid.get(uid)).filter(Boolean); }
+              relayPending = null;
+            } else if (pp) {
               const leaks = (pp.leaked || []).filter((l) => l && l.counted !== false).length;
-              // Equal immediate results prefer useful persistent growth, without ever buying it with a leak.
               const growth = m.round < m.gd.bossRound ? Object.entries(pp.layerGains || {}).reduce((n, [id, amount]) =>
                 n + layerValue(m, ps, id, amount, candidateBonds[i]), 0) : 0;
-              const score = -leaks * 10000 + (pp.killed || 0) * 10 + Math.min(5, Math.log1p(growth)) - i * 0.0001;
+              const score = -leaks * 10000 + (pp.killed || 0) * 10 + Math.min(5, Math.log1p(growth)) + relayCarryValue(m, ps, pp) - i * 0.0001;
+              const relay = leaks === 0 ? createRelayRehearsal(m, ps, candidateInputs[i], pp) : null;
+              if (relay) { relayPending = { score, count: relay.count }; battles[i] = relay.battle; t = 0; continue; }
               if (score > bestScore) { bestScore = score; bestLeaks = leaks; job.best = cands[i]; job.chosen = [...cands[i].keys()].map((uid) => byUid.get(uid)).filter(Boolean); }
             }
           }
         } catch (e) {
           m.log.warn?.(`[match ${m.roomCode}] bot rehearsal failed: ${e && e.message}`);
         }
+        relayPending = null;
         battles[i] = null;
         i++;
         t = 0;
@@ -1060,7 +1072,7 @@ function levelUp(m, ps, { spare = false } = {}) {
     const nextTarget = LEVEL_TARGET[Math.min(LEVEL_TARGET.length - 1, r + 1)];
     // early levels only once the board is full (units first); later a 6-unit core is enough
     const boardReady = ps.allChess().length >= (m.difficulty === 'ABYSS' && r === 3 ? 4 : r <= 4 ? ps.deployCap : Math.min(ps.deployCap, 6));
-    let want = price === 0 || coreUpgradeWanted(m, ps, target, price);
+    let want = price === 0 || coreUpgradeWanted(m, ps, target, price) || relayUpgradeWanted(m, ps, price);
     if (!want && ps.shop.level < target && (boardReady || r >= 6)) want = true;
     if (!want && ps.shop.level < nextTarget && price <= 2 && boardReady) want = true;
     if (!want && spare && ps.funds >= price + 1 && ps.shop.level < nextTarget + 1 && boardReady) want = true;

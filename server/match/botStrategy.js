@@ -1,5 +1,6 @@
 // Pure, bounded estimates for the bot's economy. Scores are heuristics, not simulated rewards:
 // never dispatch effects, take pool copies, or inspect another player's private hand/shop.
+import { relayBandValue, relayCoreValue } from './botTeam.js';
 import { BOND_LAYER_CAP } from '../../shared/constants.js';
 import { computeBonds, pieceBonds } from './bondsMeta.js';
 import { itemKey } from './gamedata.js';
@@ -53,7 +54,7 @@ export function corePlan(m, ps) {
     const access = Math.min(Math.max(0, target - count), availableNow) * 8 - Math.max(0, firstLevel - ps.shop.level) * 12;
     const score = Math.min(count, target) * 22 + Math.min(45, (ps.layers[id] || 0) * 0.3)
       + (targets.includes(id) ? 80 : 0) + (id === previous && count >= first ? 16 : 0)
-      + (target === upper ? 8 : 0) + access;
+      + (target === upper ? 8 : 0) + access + relayCoreValue(m, ps, id, count, first, bandBonds);
     if (!best || score > best.score) best = { id, count, target, reachable, first, finishLevel, score };
   }
   ps._botCore = best;
@@ -127,7 +128,7 @@ export function bandScore(m, ps, id) {
     // Public strategy picks indicate competition; no teammate inventory is inspected.
     if (m.order.some((p) => p !== ps && bandBonds(m, p.bandId).includes(bond))) score -= 5;
   }
-  return score;
+  return score + relayBandValue(m, ps, id, bandBonds(m, id), bandBonds);
 }
 
 /** Value only layers that can matter to this lineup; unactivated layers persist, but are speculative. */
