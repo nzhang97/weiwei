@@ -173,6 +173,7 @@
 //                    fail, BOSS_CLOCK_MS)
 
 import { PHASE, modeIdFor } from '../../shared/constants.js';
+import { ActionLog } from './actionLog.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
@@ -241,6 +242,8 @@ export class Match {
     this.sendFn = opts.send;
     this.broadcastFn = opts.broadcast;
     this.onEndFn = opts.onEnd;
+    // 玩家操作记录 (server/match/actionLog.js): every human action + board snapshots, saved by the lobby at match end
+    this.actionLog = opts.actionLog === false ? null : new ActionLog(this, { roomCode: opts.roomCode, matchNo: opts.matchNo ?? null, seed: opts.seed ?? null });
     this.data = opts.data && typeof opts.data === 'object' ? opts.data : {};
     this.gd = new GameData(this.data, this.modeId);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;

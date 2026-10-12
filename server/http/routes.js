@@ -51,6 +51,24 @@ export function createRequestHandler({ serveStatic, health, log }) {
       sendJson(req, res, 200, healthReport(health));
       return;
     }
+    // 玩家操作记录: GET /api/actionlog/<id>.json (download), GET /api/actionlog/<id>/submit (提交给AI学习)
+    const al = /^\/api\/actionlog\/([^/]+?)(\.json|\/submit)$/.exec(parts.rawPath);
+    if (al && health.lobby) {
+      if (al[2] === '/submit') {
+        const r = await health.lobby.submitActionLog(al[1]);
+        sendJson(req, res, r.ok ? 200 : 404, r);
+        return;
+      }
+      const text = await health.lobby.readActionLog(al[1]);
+      if (!text) { sendError(req, res, 404, '找不到操作记录 · Not found'); return; }
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${al[1]}.json"`,
+        'Cache-Control': 'no-store',
+      });
+      res.end(req.method === 'HEAD' ? undefined : text);
+      return;
+    }
     await serveStatic(req, res, parts.rawPath, parts.query);
   }
 

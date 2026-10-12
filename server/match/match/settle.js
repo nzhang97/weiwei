@@ -137,6 +137,10 @@ export class MatchSettle {
       this.reportError('buildResult', e);
       result = { t: 'm.result', victory: !!victory, roundsPassed: 0, reason, modeId: this.modeId, difficulty: this.difficulty, players: [] };
     }
+    if (this.actionLog) {
+      this.actionLog.finish(this.outcome, result);
+      if (this.actionLog.hasHumans()) result.actionLogId = this.actionLog.id;
+    }
     this.lastResultMsg = result;
     this.markPublic();
     try { this.flush(true); } catch (e) { this.reportError('flush', e); }

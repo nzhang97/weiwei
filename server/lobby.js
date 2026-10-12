@@ -99,11 +99,14 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
+import { createUploader } from './match/logUpload.js';
 import { KITTED_CHARS } from './sim/content/kits/index.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
@@ -117,7 +120,14 @@ export const LOBBY_DEFAULTS = Object.freeze({
   maxMatchesPerAddr: 8,   // matches started from one client network that may run at once (0 = unlimited)
   resyncMinGapMs: 1000,   // heavy resyncs (match state / result replay) per session at most this often on repeated hellos
   soloReconnectWindowMs: null, // a dropped solo run stays resumable this long (null = data singleReconnectTime, 24 h)
+  // 玩家操作记录 (server/match/actionLog.js): matches with a human are written to actionLogDir/<id>.json at their end
+  // (null = not written — tests); 提交给AI学习 copies one into trainingDir
+  actionLogDir: null,
+  trainingDir: null,
 });
+
+/** Action-log ids (server/match/actionLog.js ActionLog.id): only these may name a file. */
+export const ACTION_LOG_ID = /^[0-9]{8}-[0-9]{6}_[A-Za-z0-9]{0,16}_m[0-9]{1,6}$/;
 
 /** Official `singleReconnectTime` (s) when the data lacks it (constData, research 01 §1). */
 export const SOLO_RECONNECT_FALLBACK_SEC = 86_400;
@@ -779,6 +789,7 @@ export class Lobby {
     room.matchCtx = null;
     room.matchKey = null;
     room.replay = this.buildReplay(room, ctx);
+    this.saveActionLog(ctx.match);
     setImmediate(() => this.disposeMatchCtx(ctx));
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
     for (let i = 0; i < room.seats.length; i++) {
@@ -793,6 +804,84 @@ export class Lobby {
     if (!host || host.isBot || host.left) this.migrateHost(room);
     if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty');
     else this.broadcastState(room);
+  }
+
+  /**
+   * 玩家操作记录: keep the last few in memory (served at once, before the file write lands) and write it to
+   * opts.actionLogDir. Never throws; a failed write only logs a warning.
+   */
+  saveActionLog(match) {
+    try {
+      const log = match && match.actionLog;
+      if (!log || !log.hasHumans() || !ACTION_LOG_ID.test(log.id)) return;
+      const text = JSON.stringify(log.toJSON());
+      if (!this._actionLogs) this._actionLogs = new Map();
+      this._actionLogs.set(log.id, text);
+      while (this._actionLogs.size > 8) this._actionLogs.delete(this._actionLogs.keys().next().value);
+      const dir = this.opts.actionLogDir;
+      if (!dir) return;
+      fs.promises.mkdir(dir, { recursive: true })
+        .then(() => fs.promises.writeFile(path.join(dir, `${log.id}.json`), text))
+        .then(() => this.log.info(`[lobby] action log saved: ${log.id}.json (${log.events.length} actions)`))
+        .catch((e) => this.log.warn(`[lobby] action log not saved: ${e && e.message}`));
+    } catch (e) {
+      this.log.warn(`[lobby] action log failed: ${e && e.message}`);
+    }
+  }
+
+  /** The JSON text of an action log (memory, else actionLogDir), or null. */
+  async readActionLog(id) {
+    if (!ACTION_LOG_ID.test(String(id))) return null;
+    const mem = this._actionLogs && this._actionLogs.get(id);
+    if (mem) return mem;
+    if (!this.opts.actionLogDir) return null;
+    try { return await fs.promises.readFile(path.join(this.opts.actionLogDir, `${id}.json`), 'utf8'); } catch { return null; }
+  }
+
+  /** GitHub uploader for submitted logs (server/match/logUpload.js); opts.logUploader overrides (tests). */
+  get logUploader() {
+    if (this.opts.logUploader !== undefined) return this.opts.logUploader;
+    if (!this._logUploader) this._logUploader = createUploader({ trainingDir: this.opts.trainingDir, log: this.log });
+    return this._logUploader;
+  }
+
+  /**
+   * 提交给AI学习: copy an action log into opts.trainingDir, then upload it to GitHub when this machine is
+   * configured (AI_LOG_GITHUB_TOKEN); failed uploads stay queued and are retried later.
+   * @returns {Promise<{ ok: boolean, file?: string, error?: string, uploaded?: boolean, uploadConfigured?: boolean, uploadError?: string }>}
+   */
+  async submitActionLog(id) {
+    const text = await this.readActionLog(id);
+    if (!text) return { ok: false, error: 'not found' };
+    if (!this.opts.trainingDir) return { ok: false, error: 'no training dir' };
+    let file;
+    try {
+      await fs.promises.mkdir(this.opts.trainingDir, { recursive: true });
+      file = path.join(this.opts.trainingDir, `${id}.json`);
+      await fs.promises.writeFile(file, text);
+      this.log.info(`[lobby] action log submitted for AI training: ${file}`);
+    } catch (e) {
+      return { ok: false, error: String(e && e.message || e) };
+    }
+    const out = { ok: true, file: path.basename(file), uploaded: false, uploadConfigured: false };
+    const up = this.logUploader;
+    if (up && up.configured) {
+      out.uploadConfigured = true;
+      try {
+        const r = await up.submit(id, text);
+        out.uploaded = !!r.ok;
+        if (!r.ok) out.uploadError = r.error;
+      } catch (e) {
+        out.uploadError = String(e && e.message || e);
+      }
+    }
+    return out;
+  }
+
+  /** Retry queued GitHub uploads (called at server start). */
+  flushLogUploads() {
+    const up = this.opts.trainingDir ? this.logUploader : null;
+    return up && up.configured ? up.flush() : Promise.resolve({ uploaded: 0, left: 0 });
   }
 
   /** Match unicast; m.result frames are also kept for the replay. */

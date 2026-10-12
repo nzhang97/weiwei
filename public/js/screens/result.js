@@ -15,7 +15,7 @@
 //                 stats: { dmgDealt, kills, leaks, gold /* funds SPENT */, refreshes, merges, bossDamage?, itemsEquipped?,
 //                          activatedLayers?, lpLost?, perfectRounds? } }] }
 
-import { useEffect } from '../../vendor/hooks.module.js';
+import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, DifficultyTag } from '../ui/components.js';
 import { useGameData, Img, UnitThumb, BandIcon, PlayerAvatar, BondGlyph, LpTower, Sprite } from '../ui/gameComponents.js';
 import { normalizeResult, fmtNum, diyRecordFor, cardStandIn, standInForText } from '../ui/gameLogic.js';
@@ -134,6 +134,27 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
   const hidden = r.hiddenBossId && r.hiddenReached ? gd.boss(r.hiddenBossId) : null;
   const bg = uiUrl(gd.m, r.victory ? 'settle/settlemen_teamshow_success' : 'settle/settlemen_teamshow_fail');
   const mins = r.durationMs ? Math.round(r.durationMs / 60000) : null;
+  // 玩家操作记录 (server/match/actionLog.js): the server attaches the id when a human played; 提交给AI学习 copies it
+  // into logs/ai_training on the server machine and uploads it to GitHub when configured
+  // (GET /api/actionlog/<id>/submit, server/match/logUpload.js); 下载 saves the JSON locally. Live screen only.
+  const logId = !quiet && res && typeof res.actionLogId === 'string' && /^[0-9A-Za-z_-]+$/.test(res.actionLogId) ? res.actionLogId : null;
+  const [sent, setSent] = useState(null); // null | 'busy' | 'ok' | 'fail'
+  const [upNote, setUpNote] = useState('');
+  const submitLog = async () => {
+    if (!logId || sent === 'busy' || sent === 'ok') return;
+    setSent('busy');
+    try {
+      const rr = await fetch(`/api/actionlog/${logId}/submit`, { cache: 'no-store' });
+      const j = await rr.json().catch(() => ({}));
+      const ok = rr.ok && j.ok;
+      setSent(ok ? 'ok' : 'fail');
+      if (ok) {
+        setUpNote(j.uploaded ? t('已上传到 GitHub，任何设备的提交都会汇总给AI学习')
+          : j.uploadConfigured ? `${t('已保存在本机，上传失败，稍后自动重试')}（${j.uploadError || '?'}）`
+            : t('已保存在本机 logs/ai_training（本机未配置 GitHub 上传）'));
+      }
+    } catch { setSent('fail'); }
+  };
 
   return html`<div class=${cx('screen', 'result', r.victory ? 'is-win' : 'is-lose')}>
     <div class="result__bg" aria-hidden="true" style=${bg ? `--result-bg:url("${bg}")` : undefined}></div>
@@ -162,6 +183,11 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
         </div>
         <footer class="result__foot">
           <${Button} variant="primary" size="xl" icon="chevronLeft" onClick=${onBack}>${backLabel}<//>
+          ${logId ? html`<${Button} variant="secondary" size="xl" icon=${sent === 'ok' ? 'check' : undefined} loading=${sent === 'busy'}
+            disabled=${sent === 'ok'} title=${upNote || t('把本局的全部操作与每回合局面保存给AI学习')} onClick=${submitLog}>
+            ${sent === 'ok' ? t('已提交给AI学习') : sent === 'fail' ? t('提交失败，点击重试') : t('提交给AI学习')}<//>
+          <a class="result__dl t-lo" href=${`/api/actionlog/${logId}.json`} download=${`${logId}.json`}>${t('下载操作记录')}</a>
+          ${upNote ? html`<span class="result__dl t-lo">${upNote}</span>` : null}` : null}
         </footer>
       </section>
       <section class="result__players">

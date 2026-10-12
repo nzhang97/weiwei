@@ -23,6 +23,7 @@
 // The server only auto-listens when this file is the process entry point.
 
 import http from 'node:http';
+import path from 'node:path';
 import { getData, loadData } from './data.js';
 import { ROOT, listenAddress, bindCandidates, serveDirs, makeLogger, parseTrustProxy } from './http/config.js';
 import { WS_MAX_PAYLOAD, createSessionStack, attachWebSocket } from './http/websocket.js';
@@ -136,4 +137,7 @@ export async function startServer(opts = {}) {
 }
 
 // `node server/index.js` / npm start: listen, print the banner, stop on SIGINT / SIGTERM (http/boot.js).
-if (isProcessEntry(import.meta.url)) runMain(startServer);
+// 玩家操作记录 + 提交给AI学习 (+ GitHub upload when .env has AI_LOG_GITHUB_TOKEN): only this process entry writes them
+if (isProcessEntry(import.meta.url)) {
+  runMain(() => startServer({ actionLogDir: path.join(ROOT, 'logs', 'actionlogs'), trainingDir: path.join(ROOT, 'logs', 'ai_training'), logUpload: true }));
+}

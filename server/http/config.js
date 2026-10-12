@@ -80,6 +80,14 @@ export function lobbyOptionsFrom(opts) {
   for (const k of LOBBY_OPTION_KEYS) {
     if (opts[k] != null) lobbyOptions[k] = opts[k];
   }
+  // 玩家操作记录: <repo>/logs/actionlogs (every match with a human) and <repo>/logs/ai_training (提交给AI学习);
+  // only when asked: the `npm start` entry passes them, programmatic/test servers write nothing
+  if (opts.actionLogDir) {
+    lobbyOptions.actionLogDir = opts.actionLogDir;
+    lobbyOptions.trainingDir = opts.trainingDir || path.join(path.dirname(opts.actionLogDir), 'ai_training');
+    // GitHub upload of submitted logs (server/match/logUpload.js): only the `npm start` entry opts in (logUpload: true)
+    lobbyOptions.logUploader = opts.logUploader !== undefined ? opts.logUploader : (opts.logUpload ? undefined : null);
+  }
   return lobbyOptions;
 }
 

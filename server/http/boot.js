@@ -12,6 +12,8 @@
 
 import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
+import { parseEnv } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { APP_VERSION, DEV_BUILD } from '../../shared/constants.js';
 import { limitKeyOf } from '../net.js';
@@ -63,6 +65,18 @@ export function isProcessEntry(metaUrl) {
   }
 }
 
+/** Load KEY=value pairs from a .env file without overriding variables already set in the environment. */
+export function loadDotEnv(file) {
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch { return; }
+  try {
+    const vars = parseEnv(text);
+    for (const [k, v] of Object.entries(vars)) if (process.env[k] == null || process.env[k] === '') process.env[k] = v;
+  } catch (e) {
+    console.warn(`[boot] could not parse ${file}: ${e && e.message}`);
+  }
+}
+
 /** Print the boot banner of a started server. @param {{ url: string, host: string, port: number }} srv */
 export function printBanner(srv) {
   console.log(`\n  卫戍协议：盟约 · Stronghold Protocol: Alliance v${APP_VERSION}`);
@@ -85,6 +99,7 @@ export async function runMain(start) {
   // before the data, the packs or the browser runtime are read: the files must be the new version's (server/update.js).
   // Nothing is listening yet, so returning ends the process with exit code 1 once the message is written.
   if (applyPendingUpdate(ROOT).state === 'failed') { process.exitCode = 1; return; }
+  loadDotEnv(path.join(ROOT, '.env'));
   let srv;
   try {
     srv = await start();
@@ -94,6 +109,13 @@ export async function runMain(start) {
     process.exit(1);
   }
   printBanner(srv);
+  const up = srv.lobby && srv.lobby.logUploader;
+  if (up && up.configured) {
+    console.log(`  AI logs: 提交给AI学习 uploads to github.com/${up.repo} (branch ${up.branch}, device ${up.device})\n`);
+    srv.lobby.flushLogUploads().then((r) => { if (r.uploaded) console.log(`[ai-log] uploaded ${r.uploaded} queued log(s)`); }, () => {});
+  } else if (srv.lobby && srv.lobby.opts && srv.lobby.opts.trainingDir) {
+    console.log('  AI logs: 提交给AI学习 saves to logs/ai_training only (set AI_LOG_GITHUB_TOKEN in .env to upload)\n');
+  }
 
   let stopping = false;
   const stop = (signal) => {

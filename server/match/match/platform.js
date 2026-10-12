@@ -45,12 +45,14 @@ export class MatchPlatform {
     }
     if (!msg || typeof msg !== 'object' || typeof msg.t !== 'string' || !GAME_TYPES.has(msg.t)) return fail(ERR.BAD_MSG);
     let res;
+    const pre = this.actionLog ? this.actionLog.pre(ps, msg) : null;
     try {
       res = this._handle(ps, msg);
     } catch (e) {
       this.reportError(`handle ${msg.t}`, e);
       res = fail(ERR.INTERNAL);
     }
+    if (this.actionLog) this.actionLog.record(ps, msg, res, pre);
     try { this.flush(); } catch (e) { this.reportError('flush', e); }
     if (res && typeof res === 'object' && res.error) return res;
     return OK;
