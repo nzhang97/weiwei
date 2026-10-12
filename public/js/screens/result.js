@@ -85,16 +85,24 @@ export function ResultScreen() {
   useEffect(() => { audio.sfx(r.victory ? 'settlementSucceed' : 'settlementFail'); }, []);
   const back = () => store.set({ match: emptyMatch() });
   // 玩家操作记录 (server/match/actionLog.js): the server attaches the id when a human played; 提交给AI学习 copies it
-  // into logs/ai_training on the server machine (GET /api/actionlog/<id>/submit), 下载 saves the JSON locally
+  // into logs/ai_training on the server machine and uploads it to GitHub when configured
+  // (GET /api/actionlog/<id>/submit, server/match/logUpload.js), 下载 saves the JSON locally
   const logId = res && typeof res.actionLogId === 'string' && /^[0-9A-Za-z_-]+$/.test(res.actionLogId) ? res.actionLogId : null;
   const [sent, setSent] = useState(null); // null | 'busy' | 'ok' | 'fail'
+  const [upNote, setUpNote] = useState(''); // GitHub upload outcome (server/match/logUpload.js)
   const submitLog = async () => {
     if (!logId || sent === 'busy' || sent === 'ok') return;
     setSent('busy');
     try {
       const r = await fetch(`/api/actionlog/${logId}/submit`, { cache: 'no-store' });
       const j = await r.json().catch(() => ({}));
-      setSent(r.ok && j.ok ? 'ok' : 'fail');
+      const ok = r.ok && j.ok;
+      setSent(ok ? 'ok' : 'fail');
+      if (ok) {
+        setUpNote(j.uploaded ? '已上传到 GitHub，任何设备的提交都会汇总给AI学习'
+          : j.uploadConfigured ? `已保存在本机，上传失败（${j.uploadError || '未知原因'}），稍后自动重试`
+            : '已保存在本机 logs/ai_training（本机未配置 GitHub 上传）');
+      }
     } catch { setSent('fail'); }
   };
   const boss = r.bossId ? gd.boss(r.bossId) : null;
@@ -129,9 +137,10 @@ export function ResultScreen() {
         <footer class="result__foot">
           <${Button} variant="primary" size="xl" icon="chevronLeft" onClick=${back}>${hasRoom ? '返回同盟' : '返回大厅'}<//>
           ${logId ? html`<${Button} variant="secondary" size="xl" icon=${sent === 'ok' ? 'check' : undefined} loading=${sent === 'busy'}
-            disabled=${sent === 'ok'} title="把本局的全部操作与每回合局面保存到 logs/ai_training，供AI学习" onClick=${submitLog}>
+            disabled=${sent === 'ok'} title=${upNote || '把本局的全部操作与每回合局面保存到 logs/ai_training（已配置时同时上传到 GitHub），供AI学习'} onClick=${submitLog}>
             ${sent === 'ok' ? '已提交给AI学习' : sent === 'fail' ? '提交失败，点击重试' : '提交给AI学习'}<//>
-          <a class="result__dl t-lo" href=${`/api/actionlog/${logId}.json`} download=${`${logId}.json`}>下载操作记录</a>` : null}
+          <a class="result__dl t-lo" href=${`/api/actionlog/${logId}.json`} download=${`${logId}.json`}>下载操作记录</a>
+          ${upNote ? html`<span class="result__dl t-lo">${upNote}</span>` : null}` : null}
         </footer>
       </section>
       <section class="result__players">

@@ -31,7 +31,7 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { promisify } from 'node:util';
+import { parseEnv, promisify } from 'node:util';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
@@ -519,6 +519,8 @@ export async function startServer(opts = {}) {
   if (opts.actionLogDir) {
     lobbyOptions.actionLogDir = opts.actionLogDir;
     lobbyOptions.trainingDir = opts.trainingDir || path.join(path.dirname(opts.actionLogDir), 'ai_training');
+    // GitHub upload of submitted logs: only the `npm start` entry opts in (logUpload: true) so tests never upload
+    lobbyOptions.logUploader = opts.logUploader !== undefined ? opts.logUploader : (opts.logUpload ? undefined : null);
   }
   const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, options: lobbyOptions });
   const network = new Network({ registry, handler: lobby, log, options: netOptions });
@@ -643,6 +645,18 @@ export async function startServer(opts = {}) {
 // Main
 // ---------------------------------------------------------------------------------------------------
 
+/** Load KEY=value pairs from a .env file without overriding variables already set in the environment. */
+function loadDotEnv(file) {
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch { return; }
+  try {
+    const vars = parseEnv(text);
+    for (const [k, v] of Object.entries(vars)) if (process.env[k] == null || process.env[k] === '') process.env[k] = v;
+  } catch (e) {
+    console.warn(`[boot] could not parse ${file}: ${e && e.message}`);
+  }
+}
+
 function isMain() {
   if (!process.argv[1]) return false;
   try {
@@ -655,9 +669,10 @@ function isMain() {
 async function main() {
   process.on('unhandledRejection', (e) => console.error('[process] unhandled rejection', e));
   process.on('uncaughtException', (e) => console.error('[process] uncaught exception', e));
+  loadDotEnv(path.join(ROOT, '.env'));
   let srv;
   try {
-    srv = await startServer({ actionLogDir: path.join(ROOT, 'logs', 'actionlogs'), trainingDir: path.join(ROOT, 'logs', 'ai_training') });
+    srv = await startServer({ actionLogDir: path.join(ROOT, 'logs', 'actionlogs'), trainingDir: path.join(ROOT, 'logs', 'ai_training'), logUpload: true });
   } catch (e) {
     if (e && e.code === 'EADDRINUSE') console.error(`端口已被占用 / port in use: ${e.port ?? process.env.PORT ?? 3000}. Try PORT=3001 npm start`);
     else console.error('[boot] failed to start', e);
@@ -669,6 +684,13 @@ async function main() {
     for (const u of lanUrls(srv.port)) console.log(`  LAN:     ${u}`);
   }
   console.log('  Internet: cloudflared tunnel --url ' + `http://localhost:${srv.port}` + '\n');
+  const up = srv.lobby && srv.lobby.logUploader;
+  if (up && up.configured) {
+    console.log(`  AI logs: 提交给AI学习 uploads to github.com/${up.repo} (branch ${up.branch}, device ${up.device})\n`);
+    srv.lobby.flushLogUploads().then((r) => { if (r.uploaded) console.log(`[ai-log] uploaded ${r.uploaded} queued log(s)`); }, () => {});
+  } else {
+    console.log('  AI logs: 提交给AI学习 saves to logs/ai_training only (set AI_LOG_GITHUB_TOKEN in .env to upload)\n');
+  }
 
   let stopping = false;
   const stop = (signal) => {

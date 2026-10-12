@@ -65,6 +65,7 @@ import { checkLoadout } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
+import { createUploader } from './match/logUpload.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -686,20 +687,50 @@ export class Lobby {
     try { return await fs.promises.readFile(path.join(this.opts.actionLogDir, `${id}.json`), 'utf8'); } catch { return null; }
   }
 
-  /** 提交给AI学习: copy an action log into opts.trainingDir. @returns {Promise<{ ok: boolean, file?: string, error?: string }>} */
+  /** GitHub uploader for submitted logs (server/match/logUpload.js); opts.logUploader overrides (tests). */
+  get logUploader() {
+    if (this.opts.logUploader !== undefined) return this.opts.logUploader;
+    if (!this._logUploader) this._logUploader = createUploader({ trainingDir: this.opts.trainingDir, log: this.log });
+    return this._logUploader;
+  }
+
+  /**
+   * 提交给AI学习: copy an action log into opts.trainingDir, then upload it to GitHub when this machine is
+   * configured (AI_LOG_GITHUB_TOKEN); failed uploads stay queued and are retried later.
+   * @returns {Promise<{ ok: boolean, file?: string, error?: string, uploaded?: boolean, uploadConfigured?: boolean, uploadError?: string }>}
+   */
   async submitActionLog(id) {
     const text = await this.readActionLog(id);
     if (!text) return { ok: false, error: 'not found' };
     if (!this.opts.trainingDir) return { ok: false, error: 'no training dir' };
+    let file;
     try {
       await fs.promises.mkdir(this.opts.trainingDir, { recursive: true });
-      const file = path.join(this.opts.trainingDir, `${id}.json`);
+      file = path.join(this.opts.trainingDir, `${id}.json`);
       await fs.promises.writeFile(file, text);
       this.log.info(`[lobby] action log submitted for AI training: ${file}`);
-      return { ok: true, file: path.basename(file) };
     } catch (e) {
       return { ok: false, error: String(e && e.message || e) };
     }
+    const out = { ok: true, file: path.basename(file), uploaded: false, uploadConfigured: false };
+    const up = this.logUploader;
+    if (up && up.configured) {
+      out.uploadConfigured = true;
+      try {
+        const r = await up.submit(id, text);
+        out.uploaded = !!r.ok;
+        if (!r.ok) out.uploadError = r.error;
+      } catch (e) {
+        out.uploadError = String(e && e.message || e);
+      }
+    }
+    return out;
+  }
+
+  /** Retry queued GitHub uploads (called at server start). */
+  flushLogUploads() {
+    const up = this.opts.trainingDir ? this.logUploader : null;
+    return up && up.configured ? up.flush() : Promise.resolve({ uploaded: 0, left: 0 });
   }
 
   /** Match unicast; m.result frames are also kept for the replay. */
