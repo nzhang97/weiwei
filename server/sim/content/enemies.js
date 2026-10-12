@@ -809,33 +809,66 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null } = {}) {
   };
 }
 
-/** Revive as a stealthed 频次 husk (逐火 embers, 假想敌：再生). */
-function husk({ hits, delay, stealthy = true, onHusk = null, key = 'ab:ember' }) {
+const HUSK_REBIRTH = 1;          // PRTS 深池逐火战士: "被击倒后重生，持续1s，随后变为怨恨的余烬"
+const HUSK_STEALTH_RESTORE = 3;  // PRTS 作战机制 §隐匿: an enemy's 隐匿 is off while blocked and returns 3 s after the block ends
+
+/**
+ * "被击倒时暂时变为…，一段时间后重生" (talent Revive[Trigger]: 逐火 embers, 假想敌：再生's puppet). The knock-out of the
+ * first form is no kill: HUSK_REBIRTH s of 重生 (invulnerable, untargetable, unblockable, immobile, 失衡免疫; the block it
+ * had is released) — then the husk until `delay` s after that: `hits` HP of 特殊生命值机制 (every damage instance removes
+ * 1), no attack, WALKING ITS ROUTE ON and blockable — 隐匿 (`stealthy`: targetable while blocked and for
+ * HUSK_STEALTH_RESTORE s after a block ends, the block the knock-out itself released included, so ranged operators and
+ * splash can finish an ember whose blocker already took the next enemy) and / or unblockable (`unblock`: 再生's 傀儡).
+ * Killing the husk is the real death; a husk still standing after `delay` s stands up in its first form with full HP,
+ * and every later knock-out starts it again ("一次又一次地站起").
+ * User report: the earlier ember stood still, stealthed AND unblockable — nobody could ever target it, so it revived
+ * forever (the battle ran to its time limit with the enemy neither dead nor leaked).
+ */
+function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, key = 'ab:ember' }) {
+  const revive = (b, e, a) => {
+    if (!e.alive || a.state !== 'husk') return;
+    a.state = null;
+    hitCount(b, e, false);
+    e.base.maxHp = a.max;
+    e.markDirty();
+    void e.s;
+    e.hp = e.s.maxHp;
+    e.profile.noAttack = a.noAtk;
+    b.removeBuff(e, key);
+    b.removeBuff(e, `${key}:reborn`);
+    b.removeBuff(e, `${key}:reveal`);
+    if (e.route) e.route.pts = null;
+    b.fx('revive', { x: e.x, y: e.y, id: e.id });
+  };
   return {
-    killed(c, b, e, a, ab) {
-      if (a.state === 'husk' || !(hits > 0) || !(delay > 0)) return false;
+    iv: 0.1,
+    tick(b, e, a) {
+      // 隐匿 off while blocked and for HUSK_STEALTH_RESTORE s after the block ends
+      if (!stealthy || a.state !== 'husk') return;
+      if (e.blockedBy) a.lastBlocked = b.time;
+      if (a.lastBlocked != null && b.time - a.lastBlocked < HUSK_STEALTH_RESTORE - 1e-9) {
+        b.addBuff(e, { key: `${key}:reveal`, duration: 0.2, refresh: 'replace', flags: { reveal: true } });
+      }
+    },
+    killed(c, b, e, a) {
+      // an HP loss during the 1 s 重生 cannot cut it short
+      if (a.state === 'husk' && b.time < a.rebornUntil) { e.hp = e.s.maxHp; return true; }
+      if (a.state === 'husk' || !(hits > 0) || !(delay > 0)) return false;   // the husk's knock-out is the real death
       a.state = 'husk';
+      a.rebornUntil = b.time + HUSK_REBIRTH;
       a.noAtk = e.profile.noAttack;
       a.max = a.max ?? e.base.maxHp;
+      a.lastBlocked = e.blockedBy ? b.time : null;      // the knock-out releases the block: the 3 s window starts now
       e.profile.noAttack = true;
       setHits(e, hits);
       hitCount(b, e, true);
-      b.addBuff(e, { key, visible: true, flags: { noMove: true, unblockable: true, ...(stealthy ? { stealth: true } : {}) } });
-      b.fx('ember', { x: e.x, y: e.y, id: e.id, hits, dur: delay });
-      if (onHusk) onHusk(b, e);
-      b.after(delay, () => {
-        if (!e.alive || a.state !== 'husk') return;
-        a.state = null;
-        hitCount(b, e, false);
-        e.base.maxHp = a.max;
-        e.markDirty();
-        void e.s;
-        e.hp = e.s.maxHp;
-        e.profile.noAttack = a.noAtk;
-        b.removeBuff(e, key);
-        if (e.route) e.route.pts = null;
-        b.fx('revive', { x: e.x, y: e.y, id: e.id });
-      }, { owner: e });
+      b.addBuff(e, { key, visible: true, persist: true, flags: { disarm: true, ...(stealthy ? { stealth: true } : {}), ...(unblock ? { unblockable: true } : {}) } });
+      b.addBuff(e, { key: `${key}:reborn`, duration: HUSK_REBIRTH, flags: { invulnerable: true, untargetable: true, unblockable: true, noMove: true, noDisplace: true } });
+      b._unblock(e);
+      if (e.route) e.route.pts = null;
+      b.fx('ember', { x: e.x, y: e.y, id: e.id, hits, dur: HUSK_REBIRTH + delay });
+      b.after(HUSK_REBIRTH, () => { if (e.alive && a.state === 'husk' && onHusk) onHusk(b, e); }, { owner: e });
+      b.after(HUSK_REBIRTH + delay, () => revive(b, e, a), { owner: e });
       return true;
     },
   };
@@ -1423,7 +1456,7 @@ function kitBlackCloud(ab, e) {
 function kitRegen(ab) {
   const hits = T(ab, 'Revive[Trigger].prop_max_hp'), delay = T(ab, 'Revive[Trigger].interval'), block = T(ab, 'Aura.max_damage_block_cnt') ?? 0;
   return [husk({
-    hits, delay, stealthy: false, key: 'ab:regen',
+    hits, delay, stealthy: false, unblock: true, key: 'ab:regen',
     onHusk(b, e) {
       // 被击倒后…使周围一定距离内其他敌人获得可以抵挡物理及法术伤害的护盾
       b.fx('telegraph', { x: e.x, y: e.y, r: ACPUPP_AURA_RADIUS, kind: 'regenShield', id: e.id });

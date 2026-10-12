@@ -213,7 +213,7 @@ for (const key of ['enemy_1200_msfjin', 'enemy_1204_msfhu', 'enemy_1288_duskls']
     h.step();
     const e = put(h, key, [10, 7]);
     const g = h.unit('t_mage');
-    if (/duskls/.test(key)) { killed(h, e, g); assert.ok(e.alive, 'ember'); }
+    if (/duskls/.test(key)) { killed(h, e, g); assert.ok(e.alive, 'ember'); h.run(1.05); }
     const hits = e.s.maxHp;
     assert.ok(hits > 1 && hits <= 30);
     let n = 0;
@@ -307,7 +307,7 @@ for (const key of ['enemy_1203_sfhu', 'enemy_1203_sfhu_2']) {
 }
 
 for (const key of ['enemy_1288_duskls', 'enemy_1288_duskls_2', 'enemy_1292_duskld']) {
-  test(`${nm(key)}: knocked out ⇒ stealthed ember needing ${tb(key, 'Revive[Trigger].prop_max_hp')} hits; revives at full HP after ${tb(key, 'Revive[Trigger].interval')} s`, () => {
+  test(`${nm(key)}: knocked out ⇒ 1 s 重生, then a stealthed ember needing ${tb(key, 'Revive[Trigger].prop_max_hp')} hits; revives at full HP after ${tb(key, 'Revive[Trigger].interval')} s`, () => {
     const h = arena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
     h.step();
     const e = put(h, key, [10, 7]);
@@ -316,16 +316,47 @@ for (const key of ['enemy_1288_duskls', 'enemy_1288_duskls_2', 'enemy_1292_duskl
     assert.ok(e.alive);
     assert.equal(e.s.maxHp, tb(key, 'Revive[Trigger].prop_max_hp'));
     assert.ok(e.s.flags.stealth && e.profile.noAttack);
-    h.run(tb(key, 'Revive[Trigger].interval') + 0.1);
+    assert.ok(e.s.flags.invulnerable && e.s.flags.untargetable, '重生: invulnerable + untargetable for 1 s');
+    h.run(1.05);
+    assert.ok(!e.s.flags.invulnerable && !e.s.flags.noMove && !e.s.flags.unblockable, 'the ember walks on and can be blocked');
+    h.run(tb(key, 'Revive[Trigger].interval'));
     assert.equal(e.s.maxHp, max);
     assert.equal(e.hp, max);
     assert.ok(!e.s.flags.stealth);
     // an ember hit N times dies for good
     killed(h, e, null);
+    h.run(1.05);
     for (let i = 0; i < tb(key, 'Revive[Trigger].prop_max_hp'); i++) h.b.dealDamage(null, e, { amount: 1, type: 'arts' });
     assert.ok(!e.alive);
   });
 }
+
+for (const key of ['enemy_1288_duskls', 'enemy_1292_duskld']) {
+  test(`${nm(key)}: in a real fight the ember keeps walking, gets blocked again and its blocker finishes it — no endless revive`, () => {
+    const h = arena({ units: [{ chessId: 't_blade', row: 10, col: 4 }], hooks: ['death'] });
+    h.step();
+    const e = put(h, key, [10, 7], { move: true, mods: { hpMul: 0.002 } });
+    let embered = false;
+    h.runUntil(() => { if (e.findBuff('ab:ember')) embered = true; return !e.alive; }, 60);
+    assert.ok(embered, 'it became an ember first');
+    assert.ok(!e.alive, 'the ember died');
+    assert.ok(h.hooksOf('death').some((c) => c.unit.id === e.id && c.reason === 'killed'));
+  });
+}
+
+test(`${nm('enemy_1288_duskls')}: a ranged operator finishes an ember during the 3 s after its block ended`, () => {
+  const h = arena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
+  h.step();
+  const e = put(h, 'enemy_1288_duskls', [10, 7]);
+  const g = h.unit('t_gun');
+  e.blockedBy = g; g.blocking = g.blocking || []; g.blocking.push(e);   // knocked out while blocked
+  killed(h, e, g);
+  assert.equal(e.blockedBy, null, 'the 重生 releases the block');
+  h.run(1.3);
+  assert.ok(e.s.flags.stealth && e.s.flags.reveal, 'still revealed: the block ended less than 3 s ago');
+  h.run(2);
+  assert.ok(!e.s.flags.reveal, 'stealthed again 3 s after the block ended');
+});
 
 test(`${nm('enemy_9010_acpupp')}: knocked out ⇒ 15-hit regeneration husk that revives, and nearby enemies get a 5-hit shield`, () => {
   const h = arena();
@@ -335,12 +366,13 @@ test(`${nm('enemy_9010_acpupp')}: knocked out ⇒ 15-hit regeneration husk that 
   killed(h, e, null);
   assert.ok(e.alive);
   assert.equal(e.s.maxHp, tb('enemy_9010_acpupp', 'Revive[Trigger].prop_max_hp'));
+  h.run(1.05);   // the shields come with the husk, after the 1 s 重生
   const hp = o.hp;
   for (let i = 0; i < tb('enemy_9010_acpupp', 'Aura.max_damage_block_cnt'); i++) h.b.dealDamage(null, o, { amount: 100, type: 'phys' });
   assert.equal(o.hp, hp, 'shield negates the hits');
   h.b.dealDamage(null, o, { amount: 100, type: 'phys' });
   assert.ok(o.hp < hp);
-  h.run(tb('enemy_9010_acpupp', 'Revive[Trigger].interval') + 0.1);
+  h.run(tb('enemy_9010_acpupp', 'Revive[Trigger].interval'));
   assert.equal(e.hp, E.enemy_9010_acpupp.stats.maxHp);
 });
 
