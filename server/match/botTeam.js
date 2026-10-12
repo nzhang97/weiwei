@@ -15,22 +15,36 @@ const CORE_FIT = {
   anchor: { victoriaShip: 12, sargonShip: 12, yanShip: 8, lateranoShip: 6 },
 };
 
+/**
+ * Teammates who do not play (白板 / AFK): a human seat, alive, with no operator on its board from round 2 on. Their
+ * boards are public (prep scouting). botPolicy.blankProtect turns every AI into a relay helper while one exists.
+ */
+export function idleTeammates(m) {
+  if (m.round < 2) return [];
+  return m.order.filter((p) => !p.isBot && p.alive && !p.left && ![...p.board.values()].some((x) => x.kind === 'chess'));
+}
+function blankMode(m) { return !!m.botPolicy?.blankProtect && idleTeammates(m).length > 0; }
+
 export function relayRole(m, ps) {
   if (!ps.isBot || m.isSolo || !['HARD', 'ABYSS'].includes(m.difficulty)) return null;
   const bots = m.order.filter(p => p.isBot).sort((a, b) => a.seat - b.seat);
-  if (bots.length !== 3 || !m.order.some(p => !p.isBot)) return null;
+  const fourAi = bots.length === 4 && m.order.every(p => p.isBot) && m.botPolicy.fourAiRelay === true;
+  if (!fourAi && (bots.length !== 3 || !m.order.some(p => !p.isBot))) return null;
+  const roles = fourAi ? ['opening', 'bridge', 'anchor', 'anchor'] : ROLES;
   // Wait until the draft is complete. Assign each role once to the strategy that can actually
   // support it; preserving the plan after deaths avoids making several bots change course together.
   if (!m._botRelayRoles && bots.every(p => p.bandId)) {
-    const permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+    const permutations = fourAi
+      ? [0,1,2,3].flatMap(a => [0,1,2,3].filter(b => b !== a).flatMap(b => [0,1,2,3].filter(c => c !== a && c !== b).map(c => [a,b,c,[0,1,2,3].find(d => d !== a && d !== b && d !== c)])))
+      : [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
     let best = permutations[0], score = -Infinity;
     for (const order of permutations) {
-      const fit = order.reduce((n, index, role) => n + (BAND_FIT[ROLES[role]][bots[index].bandId] || 0), 0);
+      const fit = order.reduce((n, index, role) => n + (BAND_FIT[roles[role]][bots[index].bandId] || 0), 0);
       if (fit > score) { score = fit; best = order; }
     }
-    m._botRelayRoles = new Map(best.map((index, role) => [bots[index].playerId, ROLES[role]]));
+    m._botRelayRoles = new Map(best.map((index, role) => [bots[index].playerId, roles[role]]));
   }
-  const role = m._botRelayRoles?.get(ps.playerId) || ROLES[bots.indexOf(ps)];
+  const role = m._botRelayRoles?.get(ps.playerId) || roles[bots.indexOf(ps)];
   ps._botRelayRole = role;
   return role || null;
 }
@@ -38,6 +52,7 @@ export function relayRole(m, ps) {
 export function relayDuty(m, ps) {
   const role = relayRole(m, ps);
   if (!role || m.round >= m.gd.bossRound) return false;
+  if (blankMode(m)) return true;
   const phase = m.round <= 4 ? 'opening' : m.round <= 8 ? 'bridge' : 'anchor';
   if (role === phase) return true;
   if (m.round < 2) return false;
@@ -104,11 +119,18 @@ export function createRelayRehearsal(m, ps, input, result) {
     entry.count += sp.count || 1;
     types.set(key, entry);
   }
+  // an idle teammate leaks its whole wave: test this helper's share of it (2 helpers when 2+ AIs are alive)
+  let cap = 12;
+  if (blankMode(m)) {
+    const total = [...types.values()].reduce((n, e) => n + e.count, 0) * idleTeammates(m).length;
+    const helpers = Math.max(1, Math.min(2, m.order.filter((p) => p.isBot && p.alive && !p.left).length));
+    cap = Math.max(12, Math.min(m.botPolicy.blankSampleCap ?? 30, Math.ceil(total / helpers)));
+  }
   const sample = [];
-  for (let pass = 0; sample.length < 12 && pass < 12; pass++) {
+  for (let pass = 0; sample.length < cap && pass < 60; pass++) {
     let added = false;
     for (const { sp, count } of types.values()) {
-      if (pass >= count || sample.length >= 12) continue;
+      if (pass >= count * Math.max(1, idleTeammates(m).length) || sample.length >= cap) continue;
       sample.push({ enemyKey: sp.enemyKey, mods: sp.mods ? { ...sp.mods } : null, sourcePlayerId: 'relay-preview' });
       added = true;
     }
@@ -131,9 +153,10 @@ export function createRelayRehearsal(m, ps, input, result) {
   return { battle, count: sample.length };
 }
 
-export function relayDefenseValue(result, count) {
+export function relayDefenseValue(result, count, m = null) {
   if (!result || result.synthetic || !count) return 0;
   const missed = Object.values(result.perPlayer || {}).reduce((n, p) =>
     n + (p.leaked || []).filter(l => l.counted !== false).length, 0) + (result.unspawned || []).length;
-  return 6 * Math.max(0, 1 - missed / count);
+  const w = m && blankMode(m) ? (m.botPolicy.blankDefenseWeight ?? 6) : 6;
+  return w * Math.max(0, 1 - missed / count);
 }

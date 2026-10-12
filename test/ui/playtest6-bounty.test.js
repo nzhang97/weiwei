@@ -31,25 +31,38 @@ const { resolveSpCard } = await import('../../public/js/ui/choiceOverlay.js');
 const { normalizeSp } = await import('../../public/js/ui/gameLogic.js');
 const { parseRichText } = await import('../../public/js/ui/richText.js');
 
-test('#4 the draft overlay shows each bounty card\'s battles in the official colours (blue 下场 / 两场; a multi-round card reads 两场 too)', async () => {
+test('#4 the draft overlay shows each bounty card\'s battles in the official colours (blue 下场 / 两场; multi-round 每场 in red)', async () => {
   await data.loadAll('choices', 'effects', 'items', 'assets', 'enemies');
   const gd = new GameData(DATA, 'mode_multi_hard');
-  // the official multi-round cards: two battles, in the two-battle cards' blue (the user's call after playtest #6)
+  // Actual R3 / R9 drafts contain two-battle / one-battle cards respectively.
   const MULTI = new Set(DATA.choices.cards.bounty.filter((c) => c.multiRound).map((c) => c.effectId));
   const seen = new Set();
-  for (let seed = 1; seed <= 40 && seen.size < 3; seed++) {
-    const d = generateDraft(gd, createRng(seed * 977 + 3), 3, { stageId: 'act2autochess_m02' });
+  for (let seed = 1; seed <= 40 && seen.size < 2; seed++) {
+    const d = generateDraft(gd, createRng(seed * 977 + 3), seed % 2 ? 3 : 9, { stageId: 'act2autochess_m02' });
     assert.equal(d.family, 'bounty', 'co-op 绝境 R3 is a bounty draft');
     const sp = normalizeSp({ family: d.family, cards: d.cards.map(cardView), order: ['p_0'], turn: 'p_0', picks: {}, taken: {} }, [{ playerId: 'p_0' }]);
     for (const card of sp.cards) {
       const view = resolveSpCard(card, sp.family);
       const segs = parseRichText(view.desc).filter((s) => s.text);
       const styled = (cls) => segs.filter((s) => s.cls.includes(cls)).map((s) => s.text).join('|');
-      assert.ok(!styled('ba.vdown').includes('每场'), `${card.id} ${view.name}: no red 每场 (${view.desc})`);
+      assert.equal(styled('ba.vdown').includes('每场'), card.rounds >= 90, `${card.id}: duration colour matches the card`);
       if (card.rounds === 2) assert.ok(styled('ba.vup').includes('两场作战'), `${card.id} ${view.name}: blue 两场作战 (${view.desc})`);
-      else assert.match(styled('ba.vup'), /下场(作战|战斗)/, `${card.id} ${view.name}: blue 下场 (${view.desc})`);
+      else if (card.rounds === 1) assert.match(styled('ba.vup'), /下场(作战|战斗)/, `${card.id} ${view.name}: blue 下场 (${view.desc})`);
       seen.add(MULTI.has(card.id) ? 'multi' : card.rounds);
     }
   }
-  assert.deepEqual([...seen].map(String).sort(), ['1', '2', 'multi'], 'drafts with 1-, 2-battle and multi-round cards were checked');
+  assert.deepEqual([...seen].map(String).sort(), ['1', '2'], 'R3 two-battle and R9 one-battle drafts were checked');
+});
+
+
+test('multi-round bounty descriptions retain red 每场 when displayed outside the round-9 pool', async () => {
+  await data.loadAll('choices', 'effects', 'items', 'assets', 'enemies');
+  const cards=DATA.choices.cards.bounty.filter(c=>c.multiRound);
+  assert.ok(cards.length>0);
+  for (const c of cards) {
+    const card=cardView({kind:'bounty',id:c.effectId,name:c.name,desc:c.desc,descRaw:DATA.effects[c.effectId].descRaw,rounds:c.rounds,coin:c.coin,count:c.count,enemyKey:c.enemyKey});
+    const view=resolveSpCard(card,'bounty');
+    const red=parseRichText(view.desc).filter(s=>s.cls.includes('ba.vdown')).map(s=>s.text).join('|');
+    assert.ok(red.includes('每场'),c.effectId);
+  }
 });

@@ -234,3 +234,118 @@ node tools/coop-relay-run.mjs --root . --human-root ../weiwei-relay-baseline --d
 node tools/coop-relay-run.mjs --root ../weiwei-relay-baseline --human-root ../weiwei-relay-baseline --difficulty ABYSS --seed 2501 --seeds 12
 node tools/coop-relay-run.mjs --root . --human-root ../weiwei-relay-baseline --difficulty ABYSS --seed 2501 --seeds 12
 ```
+
+
+## 2026-10-10：绝境盟约研究与本地 GPU 评分训练
+
+本轮实验固定四 AI、零真人、HARD 绝境模式，只开启抽卡优化。额外强化、第三/四回合削弱、免费自选全部关闭。战斗仍由 Node 游戏引擎在 CPU 上模拟；GPU 只拟合初始策略评分，不能直接把现有逐事件战斗搬到显卡，也不宣称缩短整场模拟时间。
+
+小盟约不能按层数一概估价：精准三人扩大受益范围；灵巧 40 层扩大邻接范围；奥术需要法术伤害成员施加弱化，联防同目标仅取最强奥术实例。远见、奇迹和投资人的人数计算包含整备区，但临时区不算。核心通常需要三名不同干员激活，六人进入上档（阿戈尔上档五人，炎另有九人档）。相同干员重复卡不能凑普通人数；助力上档另按名字或精锐状态区分。调和对已有真实场上成员的核心加一计数。
+
+通用叠层要与站位、时点一起考虑：断崖在休整结束给自身和身后一格的已激活盟约各加层，空弦在下一次进入休整时给自身和身前一格加层。双方共享盟约可各得到一次。号角按最高层已激活盟约的不同阶在场干员数给层；波登可也指向最高层已激活盟约。过早让小盟约领先会影响这些通用引擎的归属，并改变优化抽卡权重。塞雷娅/白面鸮复制特质按复制者自身的位置和盟约结算；当前规划仍是保守启发式，复杂复制链不等于完整整备演算。
+
+新增可实验的 AI 参数包括小盟约战斗增长估计、拟上场阵容的邻接叠层、概率达到 100% 后的边际衰减和实际层数门槛。第一组 168 局复验虽减少漏怪但增加缺席回合，第二组 112 局强化核心与防守的候选也未通过独立种子复验；二者未设为默认。完整记录：`benchmarks/ai-hard-layers-2026-10-10.json` 和 `benchmarks/ai-hard-core-guard-2026-10-10.json`。
+
+本机 RTX 4070 已实测通过 GPU 单步梯度和拟合结果核对。`tools/train-ai-gpu.py` 直接使用已安装的 NVIDIA CUDA Driver 与 PTX；无需 Python 第三方包或下载模型。初始数据为 580 场绝境、2320 条玩家记录，按整局种子划分，避免同一随机种子的不同候选版本跨越训练/留出集。默认 counts 目标与现有固定回合防守评分成仿射对应：每只漏怪 25、漏怪比例 100、阵亡缺席相对完美防守的成本 450，推进轮数不作为训练目标。拟合设备端权重后，仅导出样本充分策略的有界初始评分调整；游戏运行时无需显卡。留出预测误差不能代替对局验证，脚本不会自动部署。
+
+在项目根目录复现 GPU 数值核对、评分训练和实战样本：
+
+```text
+python tools/train-ai-gpu.py --self-test
+python tools/test_ai_gpu.py
+python tools/train-ai-gpu.py --input docs/benchmarks/ai600-training-2026-10-10.json --input docs/benchmarks/ai-hard-layers-2026-10-10.json --input docs/benchmarks/ai-hard-core-guard-2026-10-10.json --base-policy docs/benchmarks/ai-gpu-control-2026-10-10.json --output .cache/ai-gpu-policy.json
+node tools/train-ai.mjs --difficulty HARD --policy-file .cache/ai-gpu-policy.json --seed 8801 --seeds 8 --output .cache/ai-gpu-check.json
+```
+
+训练器与原始基线/模型参数保存在 `tools/train-ai-gpu.py`、`benchmarks/ai-gpu-control-2026-10-10.json`、`benchmarks/ai-gpu-count-policy-2026-10-10.json`、`benchmarks/ai-gpu-count-model-2026-10-10.json`。显卡训练接口依据 [NVIDIA CUDA Driver API](https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/driver-api.html)。
+
+
+GPU 独立新种子实战验证完成：ratio 初版 32 对种子（64 局）平均观测玩家回合漏怪 3.198→2.927，缺席玩家回合 47→70，胜局 22→24；默认 counts 版另一组 32 对种子（64 局）漏怪 3.294→3.046，缺席回合 12→22，胜局 27→26。两版均未通过“缺席不增加”的门槛，因此均不部署。最后一组 counts 评分改善不能推断普遍胜率改善。所有新增绝境模拟共 408 局，加上先前 728 局合计 1136 局；这些研究均为四 AI，不能直接保证真人带三 AI 的表现。完整结果为 `benchmarks/ai-hard-gpu-summary-2026-10-10.json`、`benchmarks/ai-gpu-confirmation-2026-10-10.json` 和 `benchmarks/ai-gpu-count-confirmation-2026-10-10.json`。当前绝境默认仍为研究前策略，终极合作模式保留先前已验证的独立参数。
+
+
+## 2026-10-10：转为最高难度终极（ABYSS）训练
+
+训练环境按用户要求改为最高难度 ABYSS：四 AI、零真人，仅开启抽卡优化。额外数值强化、第三/四回合削弱、免费自选全部关闭。先完成的 HARD 224 场结果另存于 `benchmarks/ai-clearance-2026-10-10.json`，其候选未部署。
+
+新增 ABYSS 352 场：四策略各 24 场初筛（种子 10101–10124），候选与现有 ABYSS 策略各 64 场独立复验（10201–10264），再各 64 场确认（10401–10464）。基线包含原有 ABYSS 专用参数，避免把根策略误当作现行最高难度基线。初筛现有策略 9/24，首领判断候选 8/24，两种 GPU 初始评分候选均 5/24。最终战候选只影响 AI 判断：首领权重 2 倍、最终战阵容适配权重 1.5 倍，没有改变真实敌人或干员属性。
+
+首轮独立复验通关 15/64→18/64，但追加确认 9/64→8/64；两组普通回合漏怪与缺席回合分别完全相同。提升未稳定复现，候选未设为默认。两轮验证中现有策略合计 24/128，候选 26/128，不能据此宣称稳定通关。现有策略的失败有 76/104 场发生在普通回合全队淘汰，说明仅调最终战无法解决主要瓶颈，后续研究应优先改善普通回合存活及协防。352 场均无规则或模拟错误。
+
+GPU 训练使用本地 RTX 4070 和 428 场历史 ABYSS 数据、1712 条玩家记录，训练目标为失败局指示值加 0.2 倍固定回合防守损失。增加 `--difficulty ABYSS`，按整局种子分割训练与留出数据。模型留出误差下降不代表实战胜率提升，本轮 GPU 策略没有被部署。回归检查 186 项、Python 4 项及显卡数值校验全部通过。
+
+完整对局与审计：`benchmarks/ai-abyss-clearance-2026-10-10.json`；基线及最终战候选分别为 `benchmarks/ai-abyss-clearance-control-2026-10-10.json`、`benchmarks/ai-abyss-clearance-selected-2026-10-10.json`；GPU 模型及策略为 `benchmarks/ai-abyss-gpu-victory-model-2026-10-10.json`、`benchmarks/ai-abyss-gpu-victory-policy-2026-10-10.json`。
+
+复现时使用相同种子对照并写入不同结果文件：
+
+```text
+python tools/train-ai-gpu.py --difficulty ABYSS --objective victory --bias-scale 40 --bias-cap 5 --input docs/benchmarks/ai728-training-2026-10-10.json --base-policy docs/benchmarks/ai-abyss-clearance-control-2026-10-10.json --output .cache/ai-abyss-gpu.json
+node tools/train-ai.mjs --difficulty ABYSS --policy-file docs/benchmarks/ai-abyss-clearance-control-2026-10-10.json --seed 10401 --seeds 64 --output .cache/ai-abyss-control.json
+node tools/train-ai.mjs --difficulty ABYSS --policy-file docs/benchmarks/ai-abyss-clearance-selected-2026-10-10.json --seed 10401 --seeds 64 --output .cache/ai-abyss-selected.json
+```
+
+
+## 2026-10-10: ABYSS >40% research, ongoing
+
+Protocol: four AI, no human, ABYSS, draw optimization only. All operator buffs, round-3/4 debuffs and free selected recruitment disabled. Victory is the selection priority; fixed-horizon leakage and eliminated player-rounds remain explicit secondary metrics. No game combat stats, funds or pool rules are changed by policy experiments.
+
+Seven studies completed 1,536 games so far; independent validation wins (candidate/control, 64 games each): survival 11/13; roster search 23/11; growth 20/23; placement refinement 22/21; skillful aura 9/20; stat-based unit power 20/15; public core diversification 23/19. Fresh calibration/validation seeds are used for every study. Calibration wins are never evidence of stable held-out performance. No candidate has reached the >40% acceptance target, and no new production preset has been adopted.
+
+The selected research baseline has bounded extra roster rehearsals, exact owned-piece restoration, small-bond growth and projected formation value. Optional attack power, public-board core competition, placement refinement and active-bond unit power are planning estimates only. A separate boss rehearsal module remains unconnected pending the current frozen validation. It uses private copies of boss HP and team LP and conservative public partner snapshots, with no teammate hands, shops, funds or selected loadouts.
+
+Reports: `benchmarks/ai-abyss-survival-2026-10-10.json`, `ai-abyss-roster-2026-10-10.json`, `ai-abyss-growth-2026-10-10.json`, `ai-abyss-layout-2026-10-10.json`, `ai-abyss-aura-2026-10-10.json`, `ai-abyss-skill-2026-10-10.json`, `ai-abyss-pool-2026-10-10.json`. All seven studies reported zero rule/engine errors. Current regression suite: 196 passed, zero failed. RTX 4070 proposal regression failed its seed-held-out baseline (MSE .23130 versus .22926); its proposals were not used. Acceptance requires a frozen candidate above 40% in at least two new-seed batches, with aggregate 95% Wilson lower bound above 40%.
+
+### 2026-10-10: training round stopped; provisional best candidate applied
+
+At the user's request, the ongoing >40% goal was paused and the retained research champion was applied to `BOT_POLICY.byDifficulty.ABYSS`. This affects cooperative AI decisions, including real-player teams. HARD and solo retain their previous presets. The applied preset adds bounded owned-roster rehearsal, projected formation/layer estimates, combat-power evaluation, public-board core competition and boss rehearsal (4 plans, 90 simulated seconds); it does not enable any stat boost or free operator choice.
+
+Eleven studies completed 2,320 audited full games. Two stopped calibration studies finished another 77 individual simulations; they did not complete independent validation and were not adopted. The selected frozen policy won 25/64 in seeds 19201-19264 and 12/64 in seeds 21201-21264 (identical policy used as the combined-study control): pooled 37/128 = 28.90625%, Wilson 95% interval 21.7584%-37.2833%. The stable >40% target is not achieved. The later model and combined proposals did not improve independent win rates; unfinished lab options remain outside the production preset.
+
+Validation after applying the preset: 197 tests passed, 0 failed; an actual Match constructor with one human and three AI loaded the exact saved policy with draw optimization enabled and all stat boosts/free picks disabled. The idle service was reloaded and health/LAN HTTP checks passed. Full results and policy: `docs/benchmarks/ai-abyss-round-2026-10-10.json` and `ai-abyss-round-policy-2026-10-10.json`.
+
+## 2026-10-11：失败模式诊断、AI 技能/模组配置与 V1（终极 · 4 AI）
+
+协议：同盟终极，4 名 AI，抽卡优化开启，干员增益 / 第 3–4 回合削弱 / 免费自选关闭，试阵 3。
+
+- 诊断（基线 256 局，种子 40001–40256，86 胜）：45% 的局在第 14 回合前全队淘汰；第 13 回合后存活 0/1/2/3/4 人时通关率为 0/16/61/83/100%。漏怪峰值出现在敌人血量倍率跳升的第 7（k 4→7）和第 12 回合；联防平时挽回约一半漏怪，第 7–9 回合仅 11–20%。
+- V1（写入 `botPolicy.js` 的 ABYSS 预设）：叙拉古核心偏好 −40（部署后攻速加成在后期长战斗中大部分时间失效）；歌利亚策略优先（`bandDefenseBias.ABYSS.band_sarkazb = 25`）；AI 席位使用 `botLoadout` 技能/模组配置（`PlayerState.setLoadout(…, { bot: true })`，与真人相同的 `checkLoadout` 校验）。配置表由真实战斗截取 + 反事实重放得出（`tools/capture.mjs`、`tools/cfeval.mjs`；重放与真实结果逐场一致），仅保留分半复现且显著的 5 项：松果 S0、艾丝黛尔 S0、远牙 S0、琳琅诗怀雅 S2、隐现（精锐）不装备模组；V1 期间另截取的 3783 场战斗再次确认这 5 项，未发现新的显著项。
+- 独立验证（全新种子 60001–60256、70001–70352，逐种子配对）：基线 189/608（31.1%，95% CI 27.5–34.9%），V1 223/608（36.7%，32.9–40.6%），McNemar 116:82，p=0.019；平均通过回合 +0.46（p<1e-9）。验证 2 的最后 96 局为看到部分结果后追加，p 值略偏乐观。40% 目标未达到。
+- 否定方向（校准种子 40001–40096）：提前/推迟升级（C2 显著更差）、四 AI 接力、叙拉古估值按回合窗口（`battleWindowByRound`，默认关）、核心偏好按存活率设置、领袖试阵加长、每候选 2 种子的稳健试阵（`robustRehearsalSeeds`，默认关）、装备再分配（最优移动与 25 次换种子的噪声相当）。
+- 注意：代码中 `extraRehearsalPlans` ≤5、`rehearsalRosterCandidates` ≤4 有硬上限；Match 合并策略时最后展开根级，根级已有的键（如 `bandDefenseBias`）不能通过难度预设覆盖。
+- 回归（部分完成）：直接运行 220 个测试文件，203 个通过（2689 项断言）。对其余文件做了原始代码对照：fuzz / playtest6_summons / simServe / pathing-blockable / playtest4 / playtest5-ui 6 个文件在原始代码上失败项相同（原有问题或 CRLF 环境问题），fullmatch-coop 两边均通过；data / local-extract / client-static 在两边都超时。playtest6-limits、board3d-extract、emotes、windows-launcher 4 个文件在修改版上超时，原始代码一侧未跑完，**未评估**——其中 playtest6-limits 与对局逻辑相关，建议在本机用 `npm test` 补跑。
+- 详细报告与数据：`D:\wei\_ai_lab\AI_改进研究报告.md`。
+
+
+## 2026-10-12 — V2（终极难度：白板队友保护、老鲤偏好；召唤物范围修复）
+
+写回内容（原文件备份在 `D:\wei\_ai_lab\backup_v2\`）：
+
+- **伺夜 / 缪尔赛思（战术家）召唤物范围**：召唤物只能部署在召唤者当前朝向的攻击范围内的可部署地块（`shared/summonRange.js`；服务端 `PlayerState._legal` / `summonTileOk`，召唤者转向后超出范围的召唤物退回手牌堆；客户端 `gameLogic.canPlace` 同步；机器人放置时只考虑合法地块）。测试：`test/match/tactician_summon_range.test.js`（服务端与客户端逐格一致）。对胜率无可测影响（4 AI，360 局配对 143 vs 138，p=0.44）。
+- **老鲤阵营偏好**（`bandDefenseBias.ABYSS.band_lmlee = 30`）：随机分配阵营实验（720 局）中老鲤排名第一；全新种子配对确认 4 AI 胜率 268/720 → 301/720（不一致对 77:110，p=0.019）。
+- **白板队友保护**（`blankProtect`、`blankDefenseWeight = 40`）：仅当有真人队友自第 2 回合起场上没有任何干员时生效，所有 AI 承担联防职责，并按白板实际漏怪数排练联防份额。3 AI + 25 血白板环境的折叠筛选（720 局）：白板活过第 13 回合 +2.4 个百分点（p=0.01），R1–R13 掉血 −0.22（p=0.014）。基数很低（约 1.7%）：中期（R7–R9）每个 AI 零漏怪概率仅 14–34%，而白板只有在两名 AI 都零漏怪时才几乎不掉血。
+- **经济参数**（`econSweep`、`bankCoins`、`greyBank`、`cannotInterest`、`positionLayerWeight`、`investActivationValue`、`levelSpareMargin`、`forceBands`）：已加入代码，**默认关闭**。`econSweep` 在筛选中 rp +0.16（p=0.002），确认实验 +2.9 个百分点（p=0.17），尚未达到写入预设的标准。
+- 未采用（在全新种子上未复现或有害）：`publicCoreCompetitionWeight 0.8`、`upgradeReserveCoins 0`、更快的升级曲线、`investActivationValue`。
+
+回归：bot-core / bot-economy-support / bot-strategy / bot-team / bot / gameLogic / summons 相关测试全部通过；`test/match/playtest6_summons.test.js` 的 3 项失败与修改前相同。
+
+## 2026-10-12 - V3（从真人对局学习；3 AI + 白板环境）
+
+来源：两局提交到 `logs/ai_training/` 的真人对局（贾维卡 2 级叠拉普兰德、变形者集群+维多利亚，均终局 R15 胜利），加上 3 AI + 1 个不操作的 25 血白板队友环境的夜间筛选。改动前备份在 `D:\wei\_ai_lab\backup_v3\`。
+
+写入 `byDifficulty.ABYSS`：
+
+- **有真人队友时不偏好歌利亚**（`humanTeamBandBias.band_sarkazb = 0`，`humanTeamBandLpWeight = 0.3`）：歌利亚 45 血只保自己。筛选（8 因子折叠设计，1080 局）白板平均阵亡回合 +0.33（p=0.004）；单独 A/B（720 局配对）+0.31（p<0.001），活过 R13 +2.1 个百分点（p=0.016）。4 AI 对局不受影响（只在有真人队友时生效）。
+- **站位多一轮整体调整**（`layoutRefinementPasses = 2`）：折叠设计 +0.25（p=0.026），A/B +0.12（p=0.03）。代价：每局 AI 计算量约 +20%。
+- **最后几块钱换经济道具**（`econSweep`）：白板环境下单独无显著效果，之前 4 AI 筛选略正，保留。
+- **变形同构体配对**（`morphPairing`，新）：变形同构体等手里有可配对装备（维式重锤系列等）时才装，装在没有该盟约的主力上，配对装备随后跟上；手里有闲置变形同构体时会买 1 块钱的维式重锤。
+- **阵营套路**（`bandPolicy`，只在 AI 自己选到该阵营时生效）：贾维 R1–R7 卡 2 级、R8 起放开，保留拉普兰德，德克萨斯/普罗旺斯刷新引擎可买可卖（强制一个 AI 选贾维的对照中团队胜率 14.7%→18.6%，p=0.10）；变形者集群偏向维多利亚（无显著效果）。
+
+全新种子确认（98001–98720，各 720 局，配对）：
+
+| 环境 | V2 | V3 | p |
+|---|---|---|---|
+| 3 AI + 白板：白板活过 R13 | 2.4% | 5.4% | <0.001 |
+| 3 AI + 白板：白板平均阵亡回合 | 8.64 | 9.20 | <0.001 |
+| 3 AI + 白板：团队胜率 | 30.0% | 32.8% | 0.19 |
+| 4 AI：胜率 | 43.5% | 45.4% | 0.33 |
+
+未采用：空弦/断崖站位加权（`positionLayerWeight 4` + `formationGrowthWeight 0.05`，白板略负 p=0.14；AI 的空弦已有 81% 时间前方是激活盟约干员）；强制 3 个 AI 都走罗素/杜遥夜/贾维（团队胜率 31%→6%）。仓库默认配置已复现测试对局（4/4 逐回合一致）。

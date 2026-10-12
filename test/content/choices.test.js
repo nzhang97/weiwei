@@ -28,6 +28,12 @@ function dataWith(modeId, round, family, { tactic = null, bounty = null, cards =
   if (tactic) out.choices.cards.tactic = ch.cards.tactic.filter((c) => tactic.includes(c.effectId));
   // the listed bounty cards are offered by this draft even when the real one would not (战术特训 comes from 法术教鞭
   // only — choices.json `draft`, user playtest #6 item 4): these tests drive the payouts through the draft
+  // Payout tests deliberately inject cards/draft timing; production schedules are tested separately.
+  if (bounty) {
+    r.bountyRounds = null;
+    const mode = DATA.config.modes[modeId];
+    out.config = {...DATA.config,modes:{...DATA.config.modes,[modeId]:{...mode,spRounds:[...new Set([...mode.spRounds,round])]}}};
+  }
   if (bounty) out.choices.cards.bounty = ch.cards.bounty.filter((c) => bounty.includes(c.effectId)).map((c) => ({ ...c, draft: true }));
   return out;
 }

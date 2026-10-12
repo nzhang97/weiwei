@@ -58,6 +58,8 @@
 //     and refuses it afterwards (WRONG_PHASE: the match's loadout is locked, the stored one applies to the next match).
 
 import { randomBytes, randomInt } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { ERR, MAX_SEATS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
 import { checkLoadout } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
@@ -75,7 +77,14 @@ export const LOBBY_DEFAULTS = Object.freeze({
   maxMatchesPerAddr: 8,   // matches started from one client network that may run at once (0 = unlimited)
   resyncMinGapMs: 1000,   // heavy resyncs (match state / result replay) per session at most this often on repeated hellos
   soloReconnectWindowMs: null, // a dropped solo run stays resumable this long (null = data singleReconnectTime, 24 h)
+  // 玩家操作记录 (server/match/actionLog.js): matches with a human are written to actionLogDir/<id>.json at their end
+  // (null = not written — tests); 提交给AI学习 copies one into trainingDir
+  actionLogDir: null,
+  trainingDir: null,
 });
+
+/** Action-log ids (server/match/actionLog.js ActionLog.id): only these may name a file. */
+export const ACTION_LOG_ID = /^[0-9]{8}-[0-9]{6}_[A-Za-z0-9]{0,16}_m[0-9]{1,6}$/;
 
 /** Official `singleReconnectTime` (s) when the data lacks it (constData, research 01 §1). */
 export const SOLO_RECONNECT_FALLBACK_SEC = 86_400;
@@ -110,6 +119,7 @@ export class Room {
     this.aiRound34Nerf = false;
     this.humanOperatorBuff = false;
     this.freeOperatorPick = false;
+    this.drawOptimization = true;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -158,6 +168,7 @@ export class Room {
       aiRound34Nerf: this.aiRound34Nerf,
       humanOperatorBuff: this.humanOperatorBuff,
       freeOperatorPick: this.freeOperatorPick,
+      drawOptimization: this.drawOptimization,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
@@ -267,6 +278,7 @@ export class Lobby {
       case 'room.setAiRound34Nerf': return this.setAiRound34Nerf(session, msg);
       case 'room.setHumanOperatorBuff': return this.setHumanOperatorBuff(session, msg);
       case 'room.setFreeOperatorPick': return this.setFreeOperatorPick(session, msg);
+      case 'room.setDrawOptimization': return this.setDrawOptimization(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.start': return this.start(session);
@@ -463,6 +475,21 @@ export class Lobby {
     return OK;
   }
 
+  setDrawOptimization(session, { enabled }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (typeof enabled !== 'boolean') return fail(ERR.BAD_MSG);
+    this.dropReplay(room, session.playerId);
+    if (room.drawOptimization !== enabled) {
+      room.drawOptimization = enabled;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
   addBot(session) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -570,6 +597,7 @@ export class Lobby {
         aiRound34Nerf: room.aiRound34Nerf === true,
         humanOperatorBuff: room.humanOperatorBuff === true,
         freeOperatorPick: room.freeOperatorPick === true,
+        drawOptimization: room.drawOptimization === true,
         modeId: modeIdFor(room.mode, room.difficulty),
         seats,
         seed,
@@ -610,6 +638,7 @@ export class Lobby {
     room.matchCtx = null;
     room.matchKey = null;
     room.replay = this.buildReplay(room, ctx);
+    this.saveActionLog(ctx.match);
     setImmediate(() => this.disposeMatchCtx(ctx));
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
     for (let i = 0; i < room.seats.length; i++) {
@@ -623,6 +652,54 @@ export class Lobby {
     if (!host || host.isBot || host.left) this.migrateHost(room);
     if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty');
     else this.broadcastState(room);
+  }
+
+  /**
+   * 玩家操作记录: keep the last few in memory (served at once, before the file write lands) and write it to
+   * opts.actionLogDir. Never throws; a failed write only logs a warning.
+   */
+  saveActionLog(match) {
+    try {
+      const log = match && match.actionLog;
+      if (!log || !log.hasHumans() || !ACTION_LOG_ID.test(log.id)) return;
+      const text = JSON.stringify(log.toJSON());
+      if (!this._actionLogs) this._actionLogs = new Map();
+      this._actionLogs.set(log.id, text);
+      while (this._actionLogs.size > 8) this._actionLogs.delete(this._actionLogs.keys().next().value);
+      const dir = this.opts.actionLogDir;
+      if (!dir) return;
+      fs.promises.mkdir(dir, { recursive: true })
+        .then(() => fs.promises.writeFile(path.join(dir, `${log.id}.json`), text))
+        .then(() => this.log.info(`[lobby] action log saved: ${log.id}.json (${log.events.length} actions)`))
+        .catch((e) => this.log.warn(`[lobby] action log not saved: ${e && e.message}`));
+    } catch (e) {
+      this.log.warn(`[lobby] action log failed: ${e && e.message}`);
+    }
+  }
+
+  /** The JSON text of an action log (memory, else actionLogDir), or null. */
+  async readActionLog(id) {
+    if (!ACTION_LOG_ID.test(String(id))) return null;
+    const mem = this._actionLogs && this._actionLogs.get(id);
+    if (mem) return mem;
+    if (!this.opts.actionLogDir) return null;
+    try { return await fs.promises.readFile(path.join(this.opts.actionLogDir, `${id}.json`), 'utf8'); } catch { return null; }
+  }
+
+  /** 提交给AI学习: copy an action log into opts.trainingDir. @returns {Promise<{ ok: boolean, file?: string, error?: string }>} */
+  async submitActionLog(id) {
+    const text = await this.readActionLog(id);
+    if (!text) return { ok: false, error: 'not found' };
+    if (!this.opts.trainingDir) return { ok: false, error: 'no training dir' };
+    try {
+      await fs.promises.mkdir(this.opts.trainingDir, { recursive: true });
+      const file = path.join(this.opts.trainingDir, `${id}.json`);
+      await fs.promises.writeFile(file, text);
+      this.log.info(`[lobby] action log submitted for AI training: ${file}`);
+      return { ok: true, file: path.basename(file) };
+    } catch (e) {
+      return { ok: false, error: String(e && e.message || e) };
+    }
   }
 
   /** Match unicast; m.result frames are also kept for the replay. */

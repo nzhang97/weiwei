@@ -131,8 +131,10 @@ import { buildDeployMap, boardOrder, pieceDir } from './board.js';
 import { bondList } from './bondsMeta.js';
 import { EffectDispatcher, getDefaultRegistry } from './effectsMeta.js';
 import { generateDraft, applyCard, cardView, bountyBattles, isMultiRoundBounty } from './choices.js';
+import { BOT_POLICY } from './botPolicy.js';
 import { setupMatchWaves, buildNormalWave, buildBossWave, bountySpawns, withBounties, previewOf, weightedPick } from './waves.js';
 import { planUnite, uniteBattleOpts, uniteSurvivors } from './unite.js';
+import { ActionLog } from './actionLog.js';
 import { pairPlayers, bossPoolHp, SharedBossPool, hiddenEligible, BOSS_HIT_STEPS } from './finalAssault.js';
 import {
   FieldRunner, DeadBattle, GAME_SPEED, snapFrame, runHeadless, timelineAt, HeadlessPacer, syntheticResult,
@@ -224,6 +226,8 @@ export class Match {
     this.aiRound34Nerf = this.mode === 'coop' && opts.aiRound34Nerf === true;
     this.humanOperatorBuff = opts.humanOperatorBuff === true;
     this.freeOperatorPick = opts.freeOperatorPick === true;
+    this.drawOptimization = opts.drawOptimization !== false;
+    this.botPolicy = { ...BOT_POLICY, ...(this.mode === 'coop' ? (opts.botPolicy || BOT_POLICY).byDifficulty?.[opts.difficulty] : {}), ...(opts.botPolicy || {}) };
     this.difficulty = opts.difficulty;
     this.modeId = opts.modeId || modeIdFor(this.mode, opts.difficulty);
     this.seed = (Number(opts.seed) >>> 0) || 1;
@@ -231,6 +235,8 @@ export class Match {
     this.sendFn = opts.send;
     this.broadcastFn = opts.broadcast;
     this.onEndFn = opts.onEnd;
+    // 玩家操作记录 (server/match/actionLog.js): every human action + board snapshots, saved by the lobby at match end
+    this.actionLog = opts.actionLog === false ? null : new ActionLog(this, { roomCode: opts.roomCode, matchNo: opts.matchNo ?? null, seed: opts.seed ?? null });
     this.data = opts.data && typeof opts.data === 'object' ? opts.data : {};
     this.gd = new GameData(this.data, this.modeId);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
@@ -395,12 +401,14 @@ export class Match {
     }
     if (!msg || typeof msg !== 'object' || typeof msg.t !== 'string' || !GAME_TYPES.has(msg.t)) return fail(ERR.BAD_MSG);
     let res;
+    const pre = this.actionLog ? this.actionLog.pre(ps, msg) : null;
     try {
       res = this._handle(ps, msg);
     } catch (e) {
       this.reportError(`handle ${msg.t}`, e);
       res = fail(ERR.INTERNAL);
     }
+    if (this.actionLog) this.actionLog.record(ps, msg, res, pre);
     try { this.flush(); } catch (e) { this.reportError('flush', e); }
     if (res && typeof res === 'object' && res.error) return res;
     return OK;
@@ -1487,7 +1495,7 @@ export class Match {
 
   addBounty(ps, card) {
     if (!ps || !card || !this.gd.enemy(card.enemyKey)) return null;
-    // a multi-round card lasts MULTI_ROUND_BOUNTY_BATTLES battles (choices.js; the user's call after playtest #6)
+    // Preserve the selected card's duration and reward; initial and later drafts use separate pools.
     const rounds = bountyBattles(card);
     const b = {
       id: `bounty:${this.nextUid()}`,
@@ -1533,7 +1541,7 @@ export class Match {
    * pool filtered by `tier` / `minTier` / `maxTier` (number or 'shopLevel') / `bond`; `golden: true` yields the elite id.
    * @returns {{ kind: 'item'|'chess', id: string, golden?: boolean } | null}
    */
-  rollPool(poolId, { shopLevel = 6 } = {}) {
+  rollPool(poolId, { shopLevel = 6, weight = null } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};
     const p = typeof poolId === 'string' && Object.hasOwn(pools, poolId) ? pools[poolId] : null;
     if (!p || typeof p !== 'object') return null;
@@ -1551,18 +1559,18 @@ export class Match {
     };
     let id = null;
     if (Array.isArray(p.weighted) && p.weighted.length) {
-      const pairs = p.weighted.filter((x) => Array.isArray(x) && free(x[0]));
+      const pairs = p.weighted.filter((x) => Array.isArray(x) && free(x[0])).map(([id,w]) => [id, w * (weight ? weight(id) : 1)]);
       id = pairs.length ? weightedPick(rng, pairs) : null;
     } else if (Array.isArray(p.items) && p.items.length) {
       const list = p.items.filter(free);
-      id = list.length ? list[Math.floor(rng() * list.length)] : null;
+      id = list.length ? (weight ? weightedPick(rng, list.map(id => [id, weight(id)])) : list[Math.floor(rng() * list.length)]) : null;
     } else {
       const maxTier = p.maxTier === 'shopLevel' ? lvl : Number.isInteger(p.maxTier) ? p.maxTier : 6;
       const minTier = Number.isInteger(p.minTier) ? p.minTier : 1;
       const bond = typeof p.bond === 'string' ? p.bond : null;
       id = this.pool.roll(rng, {
         tier: Number.isInteger(p.tier) ? p.tier : null,
-        maxTier,
+        maxTier, weight,
         filter: (cid, e) => e.tier >= minTier && (!bond || (Array.isArray(this.gd.chess(cid)?.bonds) && this.gd.chess(cid).bonds.includes(bond))),
       });
     }
@@ -1583,6 +1591,7 @@ export class Match {
       this.dispatch(ps, 'onPrepStart', { round: this.round });
       ps.recompute();
     }
+    if (this.actionLog) this.actionLog.snap('prepStart');
     // solo / single-human matches: untimed (soloUntimed); co-op: the round's prepTime
     const secs = this.soloUntimed ? null : this.gd.prepTime(this.round);
     this.setDeadline(secs, () => this.prepDeadline());
@@ -1771,6 +1780,7 @@ export class Match {
   }
 
   startCombat() {
+    if (this.actionLog) this.actionLog.snap('prepEnd');
     if (this.clientCombat) { this._startCombatClient(); return; }
     this.phase = PHASE.COMBAT;
     const alive = this.alivePlayers();
@@ -2791,6 +2801,7 @@ export class Match {
   // FINAL_ASSAULT / HIDDEN_CORE
 
   startFinalAssault(hidden) {
+    if (this.actionLog) this.actionLog.snap('prepEnd');
     const alive = this.alivePlayers();
     if (!alive.length) { this.finish({ victory: false, reason: 'eliminated' }); return; }
     this.phase = hidden ? PHASE.HIDDEN_CORE : PHASE.FINAL_ASSAULT;
@@ -2885,7 +2896,9 @@ export class Match {
    * bounty used one of its battles, exactly like SETTLE does for normal rounds.
    */
   _settleBossBounties(ps, pp) {
-    const coins = Math.max(0, Math.trunc(Number(pp.coins) || 0));
+    let coins = Math.max(0, Math.trunc(Number(pp.coins) || 0));
+    // 战术特训 pays once per perfect own battle, also when it is a boss field.
+    if (pp.perfect === true) for (const b of ps.bounties) if (b.card.payout === 'perfect') coins += b.card.coin;
     if (coins > 0) { ps.pendingFunds += coins; ps.stats.fundsGained += coins; }
     if (!ps.bounties.length) return;
     for (const b of ps.bounties) b.roundsLeft--;
@@ -3045,6 +3058,10 @@ export class Match {
     } catch (e) {
       this.reportError('buildResult', e);
       result = { t: 'm.result', victory: !!victory, roundsPassed: 0, reason, modeId: this.modeId, difficulty: this.difficulty, players: [] };
+    }
+    if (this.actionLog) {
+      this.actionLog.finish(this.outcome, result);
+      if (this.actionLog.hasHumans()) result.actionLogId = this.actionLog.id;
     }
     this.lastResultMsg = result;
     this.markPublic();

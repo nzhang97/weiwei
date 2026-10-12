@@ -115,7 +115,7 @@ export function registerMeta(registry) {
         if (!rec || !Array.isArray(rec.bonds) || !rec.bonds.includes(p.bond || 'visiShip')) return;
       }
       const price = n(ev.price);
-      if (price > 1) ctx.modifyPrice(-Math.min(disc, price - 1));
+      if (price > 0) ctx.modifyPrice(-Math.min(disc, price));
     },
   });
 

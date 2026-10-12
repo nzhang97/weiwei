@@ -127,6 +127,10 @@ export function registerMeta(registry) {
         const cards = bountyCards(ctx, family);
         if (!cards.length) { if (typeof base.onArt === 'function') base.onArt.call(base, ctx, ev); return; }
         const offer = ctx.rng.shuffle(cards.slice()).slice(0, OFFER_SIZE);
+        if (key === 'chess_item_6_03_m') {
+          if (!ctx.offerBounties(offer)) { ev.error = 'BAD_TARGET'; ev.detail = 'no training available'; }
+          return;
+        }
         const card = ctx.rng.pick(offer);
         if (!card || !ctx.addBounty(card)) { ev.error = 'BAD_TARGET'; ev.detail = 'no bounty available'; }
       },

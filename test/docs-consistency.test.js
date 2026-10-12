@@ -411,11 +411,11 @@ test('user playtest #6 (DESIGN §20): summons, skill triggers, blocking, push fo
   for (const [name, text] of [['build-data', readFileSync(join(ROOT, 'tools/build-data.mjs'), 'utf8')], ['DATA.md', DATA_MD]]) {
     assert.ok(!/question to the user|awaits the user's confirmation/.test(text), `${name}: the 凯瑟琳 question is settled`);
   }
-  assert.equal(MULTI_ROUND_BOUNTY_BATTLES, 2, '#4: multi-round bounties last two battles (the user\'s call)');
+  assert.equal(MULTI_ROUND_BOUNTY_BATTLES, null, '#4: official multi-round bounties last every later battle');
   assert.match(s209, /MULTI_ROUND_BOUNTY_BATTLES = null/);
   assert.match(META, /MULTI_ROUND_BOUNTY_BATTLES = null` restores the official red "每场"/);
-  assert.match(PLAYING, /官方的「多轮悬赏」（原文写「之后的每场作战」）在这里也按「接下来两场作战」处理/);
-  assert.ok(!/红字「每场」的是多轮悬赏/.test(PLAYING), 'PLAYING: no 每场 card any more');
+  assert.match(PLAYING, /红字「每场」的是多轮悬赏/);
+  assert.ok(/红字「每场」的是多轮悬赏/.test(PLAYING), 'PLAYING: official every-battle cards');
   assert.equal(ALLY_COLLIDER_RADIUS, 0.25, '#12: ranged enemies reach an operator by its 0.25 collider');
   assert.match(s209, /ALLY_COLLIDER_RADIUS = 0/);
   assert.match(sec(3), /centre distance ≤ `rangeRadius` \+ 0\.25/);

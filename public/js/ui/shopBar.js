@@ -117,10 +117,10 @@ function SkillBadge({ chess, lo }) {
 
 /**
  * Item card (the bar's item slot): the same two taps as an operator card.
- * @param {{ slot:any, idx:number, frozen?:boolean, reason?:string|null, armed?:boolean, onTap?:(idx:number)=>void,
+ * @param {{ slot:any, idx:number, frozen?:boolean, reason?:string|null, free?:boolean, armed?:boolean, onTap?:(idx:number)=>void,
  *   onBuy:Function, onDetail:Function }} props
  */
-export function ItemCard({ slot, idx, frozen = false, reason = null, armed = false, onTap = null, onBuy, onDetail }) {
+export function ItemCard({ slot, idx, frozen = false, reason = null, free = false, armed = false, onTap = null, onBuy, onDetail }) {
   const it = data.lookup('items', slot.id);
   const m = data.get('assets');
   const disabled = !!reason;
@@ -132,7 +132,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, armed = fal
     <span class="scard__bg" aria-hidden="true"></span>
     <span class="scard__top">
       <${TierChip} tier=${it?.tier ?? 1} size="md" />
-      <${PriceHex} slot=${slot} poor=${reason === '资金不足'} />
+      <${PriceHex} slot=${slot} free=${free} poor=${reason === '资金不足'} />
     </span>
     <span class="scard__itemart"><${Img} src=${itemIconUrl(m, it)} fallback=${html`<${GIcon} name="bolt" />`} /></span>
     <span class="scard__body">
@@ -140,7 +140,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, armed = fal
       <span class="scard__idesc"><${RichText} text=${it?.descRaw || it?.desc || ''} /></span>
     </span>
     ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
-    ${armed ? html`<${ArmedTag} reason=${reason} />` : null}
+    ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
   </button>`;
   return reason && reason !== '已售出' && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${card}<//>` : card;
 }
@@ -214,18 +214,26 @@ export function useTwoTap({ editable, keys }) {
  * tier min(level+1, 6); pick 1 (g.reward idx) or put it off (稍后选择 → the normal shop + a reminder pill).
  */
 function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, armed, onTap }) {
-  return html`<div class="shopbar__reward" role="group" aria-label="晋升奖励">
+  const itemOffer = offer.slots.every(s => s?.kind === 'item');
+  if (offer.source === 'training') return html`<div class="shopbar__reward" role="group" aria-label="教鞭战术特训">
+    <div class="rwtag"><b class="rwtag__title">教鞭</b><span class="rwtag__sub">特训三选一</span>
+      <button type="button" class="rwtag__later" onClick=${onLater} title="休整期结束时未选择，将自动选择第一项">稍后</button></div>
+    <div class="shopbar__rwcards">${offer.slots.map((s,i) => html`<button type="button" key=${s.id}
+      class="scard training-choice" disabled=${!editable || s.sold} onClick=${() => onPick(i)}>
+      <b>${s.name || '战术特训'}</b><${RichText} text=${s.desc || ''} /><span>选择此挑战</span></button>`)}</div>
+  </div>`;
+  return html`<div class="shopbar__reward" role="group" aria-label=${itemOffer ? '装备补给' : '晋升奖励'}>
     <div class="rwtag">
       <${Icon} name="crown" class="rwtag__icon" />
-      <b class="rwtag__title">晋升奖励</b>
-      <span class="rwtag__micro">PROMOTION</span>
-      <span class="rwtag__sub">免费选择 1 名</span>
+      <b class="rwtag__title">${itemOffer ? '装备补给' : '晋升奖励'}</b>
+      <span class="rwtag__micro">${itemOffer ? 'EQUIPMENT' : 'PROMOTION'}</span>
+      <span class="rwtag__sub">${itemOffer ? '免费选择 1 件' : '免费选择 1 名'}</span>
       <button type="button" class="rwtag__later" onClick=${onLater} title="稍后选择（回合结束后消失）"><${Icon} name="minus" />稍后</button>
     </div>
     <div class="shopbar__rwcards">
       ${offer.slots.map((s, i) => (s && !s.sold
-        ? html`<${ChessCard} key=${`rw${i}:${s.id}`} slot=${{ ...s, price: 0 }} idx=${i} priv=${priv} free=${true}
-            armed=${armed === armKey('r', i, s)} onTap=${(idx) => onTap('r', idx, s, 'chess', shopBlockReason('reward', { priv, editable, slot: s, ...LOOKUPS }), onPick)}
+        ? html`<${s.kind === 'item' ? ItemCard : ChessCard} key=${`rw${i}:${s.id}`} slot=${{ ...s, price: 0 }} idx=${i} priv=${priv} free=${true}
+            armed=${armed === armKey('r', i, s)} onTap=${(idx) => onTap('r', idx, s, s.kind === 'item' ? 'item' : 'chess', shopBlockReason('reward', { priv, editable, slot: s, ...LOOKUPS }), onPick)}
             reason=${shopBlockReason('reward', { priv, editable, slot: s, ...LOOKUPS })} onBuy=${onPick} onDetail=${onDetail} />`
         : html`<div key=${`rw${i}`} class="scard scard--sold"><span class="scard__soldtxt"><span>已选择</span></span></div>`))}
     </div>
@@ -266,7 +274,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   // collapsed tab's early return (hook order)
   const armedSlot = armedSlotOf(armed, slots, showReward ? reward.slots : null);
   const armedSig = armedSlot ? `${armedSlot.kind}:${armedSlot.id}` : '';
-  useEffect(() => { onArm?.(armedSlot ? { kind: armedSlot.kind === 'item' ? 'item' : 'chess', id: armedSlot.id } : null); }, [armedSig]);
+  useEffect(() => { onArm?.(armedSlot && armedSlot.kind !== 'bounty' ? { kind: armedSlot.kind === 'item' ? 'item' : 'chess', id: armedSlot.id } : null); }, [armedSig]);
   useEffect(() => () => onArm?.(null), []);
   /** First tap arms + opens the detail; the second buys (or says why it can't). */
   const tapCard = (kind, idx, slot, detailKind, reason, buy) => {

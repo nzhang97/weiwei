@@ -8,8 +8,7 @@
 //                     never 战术特训, which only 法术教鞭 creates, nor the hidden 鸭爵 set; the 7 multi-round "之后 / 后续
 //                     的每场作战" cards stay in, as the table lists them); each card carries its official rich text
 //                     `descRaw` (the battles in blue "下场作战" / "两场作战"); a multi-round card lasts
-//                     MULTI_ROUND_BOUNTY_BATTLES battles and says so (`bountyBattles` / `bountyText`: the user's call
-//                     after playtest #6 — "我不记得有过多轮悬赏")
+//                     every later battle, as stated in the PRTS records (`bountyBattles` / `bountyText`)
 //   supply  道具补给  random normal EQUIP shop items with tier in supplyTiers [lo, hi] (duplicates allowed)
 //   shop    机密商店  random normal EQUIP shop items of any tier I–VI (duplicates allowed); FREE — the official card
 //                     text is "无需消耗资金，获得装备补给" (research 01 A4/04 addendum), so the price is 0
@@ -38,15 +37,10 @@ import { weightedPick } from './waves.js';
 
 export const FAMILY_NAMES = { bounty: '悬赏决策', supply: '道具补给', shop: '机密商店', tactic: '战术决策' };
 
-/**
- * Battles a multi-round bounty card lasts (data `rounds` 99, official text "之后 / 后续的<@ba.vdown>每场</>作战":
- * 山海众头目·多轮悬赏, 多轮悬赏·假想敌 ×6, 法术大师A2·多轮战术特训). The user does not remember any multi-round bounty
- * (playtest #6 answer, "我不记得有过多轮悬赏"): until that is confirmed otherwise every such card lasts two battles,
- * exactly like the "接下来两场作战" cards, and its text says so in the same blue (`bountyText`). `null` restores the
- * official "每场" (every later battle, red text) everywhere: the draft, 教鞭 / 神秘顾客, the bounty list and the effects
- * column (DESIGN §20).
+/** Official multi-round cards apply to every later battle (PRTS lower-period covenant records).
+ * Keep the optional duration override disabled; one- and two-battle cards retain their own durations.
  */
-export const MULTI_ROUND_BOUNTY_BATTLES = 2;
+export const MULTI_ROUND_BOUNTY_BATTLES = null;
 /** A multi-round bounty card ("之后 / 后续的每场作战"; choices.json `multiRound`, or data `rounds` ≥ 90). */
 export const isMultiRoundBounty = (c) => !!c && (c.multiRound === true || Number(c.rounds) >= 90);
 /** The battles a bounty card's enemies come for (MULTI_ROUND_BOUNTY_BATTLES for a multi-round card), 1–99. */
@@ -157,7 +151,7 @@ function buildCards(gd, rng, family, n, sch, { stageId = null, bondAvailable = n
   const cardsData = gd.choices.cards || {};
   if (family === 'bounty') {
     const tiers = Array.isArray(sch.bountyTiers) && sch.bountyTiers.length ? sch.bountyTiers : [1, 2];
-    const pool = (Array.isArray(cardsData.bounty) ? cardsData.bounty : []).filter((c) => c && draftBounty(c) && tiers.includes(c.tier) && gd.enemy(c.enemyKey) && !gd.inactiveEnemies.has(c.enemyKey));
+    const pool = (Array.isArray(cardsData.bounty) ? cardsData.bounty : []).filter((c) => c && draftBounty(c) && (!sch.bountyRounds || c.rounds === sch.bountyRounds) && tiers.includes(c.tier) && gd.enemy(c.enemyKey) && !gd.inactiveEnemies.has(c.enemyKey));
     const pick = pool.slice();
     rng.shuffle(pick);
     return pick.slice(0, n).map((c) => {
@@ -274,8 +268,8 @@ function applyDefault(m, ps, card) {
         break;
       case 'single_special_choice_gain_bond_chess': {
         for (let i = 0; i < count; i++) {
-          const id = m.pool.roll(m.rngMeta, { maxTier: Math.max(1, ps.shop.level), filter: (cid) => { const c = gd.chess(cid); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bs.bond)); } })
-            || m.pool.roll(m.rngMeta, { maxTier: 6, filter: (cid) => { const c = gd.chess(cid); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bs.bond)); } });
+          const id = m.pool.roll(m.rngMeta, { maxTier: Math.max(1, ps.shop.level), weight: ps.chessDrawWeight(), filter: (cid) => { const c = gd.chess(cid); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bs.bond)); } })
+            || m.pool.roll(m.rngMeta, { maxTier: 6, weight: ps.chessDrawWeight(), filter: (cid) => { const c = gd.chess(cid); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bs.bond)); } });
           if (id) ps.acquireChess(id, { source: 'choice' });
         }
         handled = true;

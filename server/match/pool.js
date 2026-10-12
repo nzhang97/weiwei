@@ -108,7 +108,10 @@ export class SharedPool {
    * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean }} [opts]
    */
   roll(rng, opts = {}) {
-    const el = this._eligible(opts);
+    const el = this._eligible(opts).map(([id,n]) => {
+      const weight = typeof opts.weight === 'function' ? opts.weight(id) : 1;
+      return [id, n * (Number.isFinite(weight) && weight > 0 ? weight : 1)];
+    });
     let total = 0;
     for (const [, n] of el) total += n;
     if (total <= 0) return null;

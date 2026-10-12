@@ -1051,6 +1051,9 @@ test('教鞭 (Art): a 战术特训 bounty (PRTS "于3个战术特训的悬赏任
     for (let k = 0; k < 2; k++) {
       const art = giveItem(m, ps, 'chess_item_6_03_m');
       assert.deepEqual(m.handle('p_0', { t: 'g.art', itemUid: art.uid, row: 10, col: 5 }), OK);
+      assert.equal(ps.offers[0].source, 'training');
+      assert.equal(ps.offers[0].slots.length, 3);
+      assert.deepEqual(m.handle('p_0', { t: 'g.reward', idx: 0 }), OK);
     }
     assert.equal(ps.bounties.length, 2);
     for (const b of ps.bounties) {

@@ -220,6 +220,7 @@ export function RoomScreen() {
   const setAiOperatorBuff = (enabled) => run('buff', () => net.request('room.setAiOperatorBuff', { enabled }));
   const setAiRound34Nerf = (enabled) => run('buff', () => net.request('room.setAiRound34Nerf', { enabled }));
   const setHumanOperatorBuff = (enabled) => run('buff', () => net.request('room.setHumanOperatorBuff', { enabled }));
+  const setDrawOptimization = (enabled) => run('buff', () => net.request('room.setDrawOptimization', { enabled }));
   const setFreeOperatorPick = (enabled) => run('buff', () => net.request('room.setFreeOperatorPick', { enabled }));
   const leave = async () => {
     if (inFlight.current) return;
@@ -331,6 +332,16 @@ export function RoomScreen() {
         <span>每回合免费自选干员</span><b>${room.freeOperatorPick ? '已开启' : '未开启'}</b>
       </label>
       <span class="room-ai-buff__desc">每名真人玩家每回合可免费自选 1 名等级不高于当前基地等级的普通干员，遵循本局禁用与共享干员池规则。${facts.isHost ? '' : '由创建者设置。'}</span>
+    </section>
+
+    <section class="room-ai-buff room-draw-optimization" aria-label="抽卡优化设置">
+      <label class="room-ai-buff__toggle">
+        <input type="checkbox" checked=${room.drawOptimization === true}
+          disabled=${!facts.isHost || !online || !!busy}
+          onChange=${(ev) => setDrawOptimization(ev.currentTarget.checked)} />
+        <span>抽卡优化</span><b>${room.drawOptimization ? '已开启' : '未开启'}</b>
+      </label>
+      <span class="room-ai-buff__desc">真人和 AI 队友各自按盟约叠层排名抽卡：前四名权重分别为 3、2.5、2、1.5 倍，其余为 1 倍。初始商店、刷新及随机获取干员均生效；不叠层盟约不参与排名，零层不加权，同层共享排名。干员有多个盟约时只取最高倍率。${facts.isHost ? '' : '由创建者设置。'}</span>
     </section>
 
     <footer class="room-bar">

@@ -1202,6 +1202,29 @@ function buildEffects(ctx) {
   for (const id of Object.keys(ctx.act.effectBuffInfoDataDict)) {
     if (!out[id]) warn(`effectBuffInfoDataDict has ${id} without effectInfoDataDict entry`);
   }
+  // PRTS lower-period bounty table corrections, checked 2026-10-09.
+  const bountyCorrections = {
+    enemyeffect_b_11: { coin: 3 }, enemyeffect_18_1: { round: 1 }, enemyeffect_16_2: { round: 2 },
+    enemyeffect_11_6: { enemy_id: 'enemy_1207_sfji' }, enemyeffect_12_7: { coin: 1, name: '悬赏·损伤I' },
+  };
+  for (const [id, correction] of Object.entries(bountyCorrections)) {
+    const e = out[id]; if (!e) continue;
+    if (correction.name) e.name = correction.name;
+    if (correction.coin != null) e.enemyPrice = correction.coin;
+    for (const b of e.buffs) if (/add_enemy/.test(b.key)) {
+      for (const k of ['coin', 'round']) if (correction[k] != null) b.bb[k] = correction[k];
+      if (correction.enemy_id) b.bbStr.enemy_id = correction.enemy_id;
+    }
+    for (const k of ['coin', 'round', 'enemy_id']) if (correction[k] != null) e.params[k] = correction[k];
+    for (const key of ['desc', 'descRaw']) {
+      let text = e[key];
+      if (correction.coin != null) text = text.replace(/获得(<@ba.vup>)?\d+(<\/>)?资金/g, (_, a, b) => `获得${a || ''}${correction.coin}${b || ''}资金`);
+      if (correction.round === 1) text = text.replace('接下来<@ba.vup>两场作战</>', '<@ba.vup>下场作战</>').replace('接下来两场作战', '下场作战');
+      if (correction.round === 2) text = text.replace('<@ba.vup>下场战斗</>', '接下来<@ba.vup>两场作战</>').replace('下场战斗', '接下来两场作战');
+      if (correction.enemy_id) text = text.replace('清明', '沉沙');
+      e[key] = text;
+    }
+  }
   return out;
 }
 
@@ -2323,7 +2346,7 @@ const ROMAN = { I: 1, II: 2, III: 3 };
  * Everything else is drafted, as the table lists it: the "下场作战" and "接下来两场作战" kill bounties, 源石虫·特训
  * ("但不获得资金") and the 7 multi-round cards ("之后 / 后续的每场作战": 山海众头目·多轮悬赏, 多轮悬赏·假想敌 ×6), whose
  * official text carries the red "每场" (`multiRound`, `rounds` 99 kept as the data has them; the server makes such a
- * card last MULTI_ROUND_BOUNTY_BATTLES = 2 battles and rewrites its text — server/match/choices.js bountyBattles /
+ * card retain the official every-battle duration (MULTI_ROUND_BOUNTY_BATTLES = null) — server/match/choices.js bountyBattles /
  * bountyText, the user's call after playtest #6). The 战术特训 cards are what the
  * 教鞭 Art offers (PRTS 法术 教鞭 "于3个战术特训的悬赏任务中选择一项"; server/sim/content/items/meta.js); nothing in
  * act2 offers the 鸭爵 set.
@@ -2412,13 +2435,13 @@ function buildChoices(ctx, effects, items, chess) {
 
   // Per-mode schedule of families (research 01 A4).
   const schedule = {};
-  const supplyWindow = { 3: [1, 4], 6: [2, 5], 9: [3, 6], 11: [4, 6] };
-  const bountyTiers = { 3: [1, 2], 6: [1, 2, 3], 9: [2, 3], 11: [2, 3] };
+  const supplyWindow = { 4: [1, 4], 3: [1, 4], 6: [2, 5], 9: [3, 6], 11: [4, 6] };
+  const bountyTiers = { 4: [1, 2], 3: [1, 2], 6: [1, 2, 3], 9: [2, 3], 11: [2, 3] };
   for (const [modeId, rounds] of Object.entries(act.battleDataDict)) {
     const mode = act.modeDataDict[modeId];
     const solo = mode.modeType === 'SINGLE';
     const diff = mode.modeDifficulty;
-    const sp = Object.entries(rounds).filter(([, es]) => es.some((e) => e.isSpPrepare)).map(([r]) => Number(r)).sort((a, b) => a - b);
+    const sp = Object.entries(rounds).filter(([, es]) => es.some((e) => e.isSpPrepare)).map(([r]) => modeId === 'mode_single_hard' && Number(r) === 3 ? 4 : Number(r)).sort((a, b) => a - b);
     const m = {};
     for (const r of sp) {
       let families;
@@ -2430,10 +2453,13 @@ function buildChoices(ctx, effects, items, chess) {
           ? [{ family: r === 9 ? 'tactic' : 'supply', weight: 100 }]
           : [{ family: 'bounty', weight: 50 }, { family: 'supply', weight: 25 }, { family: 'shop', weight: 10 }, { family: 'tactic', weight: 15 }];
       } else families = [{ family: 'supply', weight: 45 }, { family: 'tactic', weight: 35 }, { family: 'shop', weight: 20 }];
-      const bountyEvents = r <= 3 ? eventsOf('bounty', (e) => /^enemy_initial/.test(e.id) && e.solo === solo) : eventsOf('bounty', (e) => /^(bounty_hunter|bossInitial)/.test(e.id) && e.solo === solo);
+      const bountyEvents = r <= 4 ? eventsOf('bounty', (e) => /^enemy_initial/.test(e.id) && e.solo === solo) : eventsOf('bounty', (e) => /^(bounty_hunter|bossInitial)/.test(e.id) && e.solo === solo);
       m[r] = {
         families, cards: solo ? 3 : 6,
-        supplyTiers: supplyWindow[r] || [1, 6], bountyTiers: bountyTiers[r] || [1, 3],
+        // Initial bounties cover two battles and all three reward tiers, including 山海众 (3 coins).
+        // Round 9 only offers one-battle bounties.
+        ...(r <= 4 ? { bountyRounds: 2 } : r === 9 ? { bountyRounds: 1 } : {}),
+        supplyTiers: supplyWindow[r] || [1, 6], bountyTiers: r <= 4 ? [1, 2, 3] : bountyTiers[r] || [1, 3],
         events: {
           bounty: bountyEvents,
           supply: diff === 'TRAINING' ? eventsOf('supply', (e) => e.training) : eventsOf('supply', (e) => !e.training && e.solo === solo),
@@ -2560,7 +2586,8 @@ function buildConfig(ctx, waves, stages, bands) {
         levelMaxPlayTime: waves[tplId]?.maxPlayTime ?? null,
         prepTime: multi || type === 'LOCAL' ? turn.normalPhaseTime ?? null : null,
         prepTimeData: turn.normalPhaseTime ?? null,
-        isSpPrepare: entries.some((e) => e.isSpPrepare), isBoss, isHidden,
+        // Solo HARD's first decision follows battle 3; co-op / ABYSS still prepare at round 3.
+        isSpPrepare: modeId === 'mode_single_hard' && (r === 3 || r === 4) ? r === 4 : entries.some((e) => e.isSpPrepare), isBoss, isHidden,
         bossOvertimeAfter: isBoss ? turn.bossTurnHpReduceTime || 150 : null,
       };
       enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden);

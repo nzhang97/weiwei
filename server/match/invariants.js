@@ -147,7 +147,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
       });
       for (const o of ps.offers) {
         for (const s of o.slots || []) {
-          if (s.kind === 'item' ? !gd.item(s.id) : !gd.chess(s.id)) fail(`${id}: bad reward slot ${s.kind} ${s.id}`);
+          if (s.kind === 'bounty' ? !gd.choices.cards.bounty.some(c => c.effectId === s.id && c.payout === 'perfect') : s.kind === 'item' ? !gd.item(s.id) : !gd.chess(s.id)) fail(`${id}: bad reward slot ${s.kind} ${s.id}`);
           if (s.kind !== 'item' && banned.has(gd.baseIdOf(s.id)) && o.source === 'merge') fail(`${id}: banned chess ${s.id} offered as a merge reward`);
         }
         if (!o.slots || !o.slots.length || o.slots.length > 6) fail(`${id}: reward offer with ${o.slots && o.slots.length} slots`);

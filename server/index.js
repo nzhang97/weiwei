@@ -514,6 +514,12 @@ export async function startServer(opts = {}) {
   for (const k of ['lobbyGraceMs', 'maxRooms', 'maxRoomsPerAddr', 'maxMatchesPerAddr', 'resyncMinGapMs', 'soloReconnectWindowMs']) {
     if (opts[k] != null) lobbyOptions[k] = opts[k];
   }
+  // 玩家操作记录: <repo>/logs/actionlogs (every match with a human) and <repo>/logs/ai_training (提交给AI学习);
+  // only when asked: the `npm start` entry passes them, programmatic/test servers write nothing
+  if (opts.actionLogDir) {
+    lobbyOptions.actionLogDir = opts.actionLogDir;
+    lobbyOptions.trainingDir = opts.trainingDir || path.join(path.dirname(opts.actionLogDir), 'ai_training');
+  }
   const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, options: lobbyOptions });
   const network = new Network({ registry, handler: lobby, log, options: netOptions });
   const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, log });
@@ -543,6 +549,24 @@ export async function startServer(opts = {}) {
         ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
         sockets: network.connectionCount, sessions: registry.size, ...lobby.stats(),
       });
+      return;
+    }
+    // 玩家操作记录: GET /api/actionlog/<id>.json (download), GET /api/actionlog/<id>/submit (提交给AI学习)
+    const al = /^\/api\/actionlog\/([^/]+?)(\.json|\/submit)$/.exec(parts.rawPath);
+    if (al) {
+      if (al[2] === '/submit') {
+        const r = await lobby.submitActionLog(al[1]);
+        sendJson(req, res, r.ok ? 200 : 404, r);
+        return;
+      }
+      const text = await lobby.readActionLog(al[1]);
+      if (!text) { sendError(req, res, 404, '找不到操作记录 · Not found'); return; }
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${al[1]}.json"`,
+        'Cache-Control': 'no-store',
+      });
+      res.end(req.method === 'HEAD' ? undefined : text);
       return;
     }
     await serveStatic(req, res, parts.rawPath, parts.query);
@@ -633,7 +657,7 @@ async function main() {
   process.on('uncaughtException', (e) => console.error('[process] uncaught exception', e));
   let srv;
   try {
-    srv = await startServer();
+    srv = await startServer({ actionLogDir: path.join(ROOT, 'logs', 'actionlogs'), trainingDir: path.join(ROOT, 'logs', 'ai_training') });
   } catch (e) {
     if (e && e.code === 'EADDRINUSE') console.error(`端口已被占用 / port in use: ${e.port ?? process.env.PORT ?? 3000}. Try PORT=3001 npm start`);
     else console.error('[boot] failed to start', e);

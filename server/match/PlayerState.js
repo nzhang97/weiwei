@@ -57,10 +57,12 @@
 import { ERR, GEO, PHASE, layerGainRoom } from '../../shared/constants.js';
 import { checkLoadout, resolveLoadout } from '../../shared/protocol.js';
 import { FIELD, tileKey, parseKey, inField, canPlace, positionClass, boardOrder, freeSlot, pieceDir, parseDir, mergeTile } from './board.js';
+import { summonTileAllowed, summonRangeLimited } from '../../shared/summonRange.js';
 import { offsetTile } from '../sim/dir.js';
 import { computeBonds, bondList, bondSnapshot, activatedLayers, bondsWithGains } from './bondsMeta.js';
 import { itemKey } from './gamedata.js';
 import { bountyText } from './choices.js';
+import { chessDrawWeight } from './drawOptimization.js';
 
 const HAND_SIZE = GEO.HAND_SIZE;
 const TEMP_SIZE = GEO.TEMP_SIZE;
@@ -95,6 +97,8 @@ export class PlayerState {
     /** operator loadout (DESIGN §16): frozen { [baseChessId]: { skill, module } }, {} = every chess on its defaults */
     this.loadout = Object.freeze({});
     if (!this.isBot && seat.loadout) this.setLoadout(seat.loadout);
+    // AI seats may carry a policy loadout (same legality check as a human's; botPolicy.botLoadout, off by default)
+    else if (this.isBot && m.botPolicy && m.botPolicy.botLoadout) this.setLoadout(m.botPolicy.botLoadout, { bot: true });
     this.shop = { level: 1, upgradePrice: this.gd.upgradeBase(1) ?? 0, slots: [], frozen: false, freeRefreshes: 0 };
     /** reward offers queue (merge rewards, special refreshes): { tier, source, slots: [{ kind, id, price, sold }] } */
     this.offers = [];
@@ -191,8 +195,8 @@ export class PlayerState {
    * @param {any} loadout
    * @returns {boolean}
    */
-  setLoadout(loadout) {
-    if (this.isBot) return false;
+  setLoadout(loadout, { bot = false } = {}) {
+    if (this.isBot && !bot) return false;
     const entries = {};
     if (loadout && typeof loadout === 'object' && !Array.isArray(loadout)) {
       for (const [id, e] of Object.entries(loadout)) {
@@ -603,7 +607,7 @@ export class PlayerState {
       const fresh = (id) => !list.includes(id);
       for (let i = 0; i < ro.count; i++) {
         let id = null;
-        for (let tt = t; tt >= 1 && !id; tt--) id = this.m.pool.roll(this.m.rngShop, { tier: tt, filter: fresh });
+        for (let tt = t; tt >= 1 && !id; tt--) id = this.m.pool.roll(this.m.rngShop, { tier: tt, filter: fresh, weight: this.chessDrawWeight() });
         if (id) list.push(id);
       }
     }
@@ -620,6 +624,16 @@ export class PlayerState {
     if (!list.length) return null;
     const offer = { tier: Number.isInteger(tier) ? tier : null, source, slots: list.map((id) => ({ kind: 'item', id, price: 0, sold: false })) };
     this.offers.push(offer);
+    this.dirty();
+    return offer;
+  }
+
+  /** 教鞭: the player chooses one of three independent training cards. */
+  pushBountyOffer(cards) {
+    const list = (Array.isArray(cards) ? cards : []).filter(c => c.payout === 'perfect' && this.gd.enemy(c.enemyKey)).slice(0, 3);
+    if (!list.length) return null;
+    const offer = { tier: null, source: 'training', slots: list.map(c => ({ kind: 'bounty', id: c.effectId, price: 0, sold: false })) };
+    this.offers.unshift(offer);
     this.dirty();
     return offer;
   }
@@ -768,8 +782,10 @@ export class PlayerState {
     return Number.isFinite(p) ? Math.max(0, Math.round(p)) : slot.basePrice;
   }
 
+  chessDrawWeight() { return chessDrawWeight(this.gd, this.layers, this.m.drawOptimization); }
+
   _rollChessSlot() {
-    const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level });
+    const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, weight: this.chessDrawWeight() });
     return id ? { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false } : null;
   }
 
@@ -968,7 +984,38 @@ export class PlayerState {
     return positionClass(rec);
   }
 
-  _legal(piece, r, c) { return canPlace(this.deployMap(), this._placementOf(piece), r, c); }
+  _legal(piece, r, c) {
+    if (!canPlace(this.deployMap(), this._placementOf(piece), r, c)) return false;
+    return piece.kind !== 'token' || this.summonTileOk(piece, r, c);
+  }
+
+  /**
+   * A tactician's summon (伺夜 狼群, 缪尔赛思 流形 …) only on a tile inside its owner's attack range as the owner stands
+   * (shared/summonRange.js; PRTS 战术家 "在攻击范围内选择…战术点"). Owner off the board: no range to check here (the
+   * placement itself is refused elsewhere).
+   */
+  summonTileOk(piece, r, c) {
+    if (!piece || piece.kind !== 'token' || !Number.isInteger(piece.ownerUid)) return true;
+    for (const [k, p] of this.board) {
+      if (p.uid !== piece.ownerUid) continue;
+      const rec = this.gd.chess(p.id);
+      if (!summonRangeLimited(rec)) return true;
+      const [or, oc] = parseKey(k);
+      return summonTileAllowed(rec, or, oc, pieceDir(p), r, c);
+    }
+    return true;
+  }
+
+  /** Summons of `ownerUid` now outside its range (it turned / moved): back onto their stacks, like a moved owner's. */
+  _liftOutOfRange(ownerUid) {
+    for (const [k, p] of [...this.board]) {
+      if (p.kind !== 'token' || p.ownerUid !== ownerUid) continue;
+      const [r, c] = parseKey(k);
+      if (this.summonTileOk(p, r, c)) continue;
+      this.board.delete(k);
+      if (!this._returnToken(p, null, { allowTemp: true })) this.board.set(k, p);
+    }
+  }
 
   _moveChessToBoard(loc, r, c, dir = 'RIGHT') {
     const piece = loc.piece;
@@ -1016,7 +1063,12 @@ export class PlayerState {
 
   /** In-place re-orientation (g.move onto the piece's own tile with a new direction). */
   _reorient(piece, dir) {
-    if (pieceDir(piece) !== dir) { piece.dir = dir; this.dirty(); }
+    if (pieceDir(piece) !== dir) {
+      piece.dir = dir;
+      // a tactician that turns takes its summons out of the new range back onto their stacks
+      if (piece.kind === 'chess') { this._liftOutOfRange(piece.uid); this.recompute(); }
+      this.dirty();
+    }
     return OK;
   }
 
@@ -1056,8 +1108,16 @@ export class PlayerState {
       } else {
         this.board.delete(loc.key);
       }
+      const prevDir = piece.dir;
       piece.dir = dir;
       this.board.set(key, piece);
+      // swapped with its own tactician owner: the owner now stands on the summon's old tile — re-check the range
+      if (occ && occ.uid === piece.ownerUid && !this.summonTileOk(piece, r, c)) {
+        this.board.set(key, occ);
+        this.board.set(loc.key, piece);
+        piece.dir = prevDir;
+        return fail(ERR.BAD_TILE, 'out of summoner range');
+      }
       if (occ && occ.kind === 'chess') this._liftTokensOf(occ.uid, piece);
       this.recompute();
       return OK;
@@ -1261,6 +1321,11 @@ export class PlayerState {
     if (!Number.isInteger(idx) || idx < 0 || idx >= offer.slots.length) return fail(ERR.BAD_TARGET);
     const slot = offer.slots[idx];
     if (!slot || slot.sold) return fail(ERR.SOLD_OUT);
+    if (slot.kind === 'bounty') {
+      const card = this.gd.choices.cards.bounty.find(c => c.effectId === slot.id && c.payout === 'perfect');
+      if (!card || !this.m.addBounty(this, card)) return fail(ERR.BAD_TARGET);
+      slot.sold = true; this.offers.shift(); this.recompute(); return OK;
+    }
     const handFull = freeSlot(this.hand) < 0;
     if (slot.kind === 'item') {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
@@ -1352,6 +1417,12 @@ export class PlayerState {
    * resolved; what overflowed after Ready or during onPrepEnd stays for the next prep, which `prepsEnded` now names.
    */
   endPrep() {
+    // A timed-out or skipped training choice still applies to the upcoming battle.
+    for (const offer of this.offers) if (offer.source === 'training') {
+      const slot = offer.slots.find(s => !s.sold);
+      const card = slot && this.gd.choices.cards.bounty.find(c => c.effectId === slot.id && c.payout === 'perfect');
+      if (card) this.m.addBounty(this, card);
+    }
     this.resolveTemp();
     this.prepsEnded++;
     for (const uid of [...this._tempDue.keys()]) if (!this.temp.some((p) => p && p.uid === uid)) this._tempDue.delete(uid);
@@ -1473,7 +1544,7 @@ export class PlayerState {
       // the battles the bounty's enemies still come for (an official multi-round card: every battle, no counter) and
       // the card's official rich text (blue "下场作战" / "两场作战", red "每场"; a multi-round card reads as long as it
       // lasts — choices.js bountyText, MULTI_ROUND_BOUNTY_BATTLES) — user playtest #6 item 4
-      const left = b.roundsLeft >= 90 ? null : b.roundsLeft;
+      const left = b.card.rounds >= 90 ? null : b.roundsLeft;
       const eff = b.card.effectId ? this.gd.effect(b.card.effectId) : null;
       out.push({
         id: b.id, name: b.card.name || '悬赏', desc: bountyText((eff && eff.descRaw) || b.card.desc || '', b.card), iconKind: 'choice', iconId: b.card.effectId || 'bounty',
@@ -1512,7 +1583,7 @@ export class PlayerState {
         freeRefreshes: this.shop.freeRefreshes,
         frozen: this.shop.frozen,
         slots,
-        rewardOffer: offer ? { tier: offer.tier, slots: offer.slots.map((s) => ({ kind: s.kind === 'item' ? 'item' : 'chess', id: s.id, price: s.price, sold: !!s.sold })) } : null,
+        rewardOffer: offer ? { tier: offer.tier, source: offer.source, slots: offer.slots.map((s) => ({ kind: s.kind === 'bounty' ? 'bounty' : s.kind === 'item' ? 'item' : 'chess', id: s.id, price: s.price, sold: !!s.sold, ...(s.kind === 'bounty' ? { name: this.gd.effect(s.id)?.name, desc: this.gd.effect(s.id)?.descRaw } : {}) })) } : null,
       },
       hand: this.hand.map((p) => (p ? this.pieceView(p) : null)),
       temp: this.temp.map((p) => (p ? this.pieceView(p) : null)),

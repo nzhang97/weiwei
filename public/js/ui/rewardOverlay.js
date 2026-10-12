@@ -12,6 +12,6 @@ export function RewardOverlay({ priv, minimized, onMinimize }) {
   const offer = priv?.shop?.rewardOffer;
   if (!offer || !Array.isArray(offer.slots) || !offer.slots.length || !minimized) return null;
   return html`<button type="button" class="rewardpill" onClick=${() => onMinimize(false)}>
-    <${Icon} name="crown" /><span>晋升奖励待选择</span><${TierChip} tier=${offer.tier || 1} size="sm" />
+    <${Icon} name="crown" /><span>${offer.source === 'training' ? '教鞭挑战待选择' : offer.slots.every(s => s?.kind === 'item') ? '装备补给待选择' : '晋升奖励待选择'}</span><${TierChip} tier=${offer.tier || 1} size="sm" />
   </button>`;
 }

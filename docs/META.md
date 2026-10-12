@@ -113,12 +113,8 @@ or the next two ("接下来两场作战"), 源石虫·特训, and the 7 multi-ro
 (listed under "※以下悬赏任务仅由法术教鞭生成") nor the 鸭爵 / 高普尼克 / 流泪小子 / 圆仔 cards (commented out of the table) —
 105 cards, drawn uniformly. Every bounty card carries the effect's official rich text `descRaw` (the battles in blue
 "下场作战" / "两场作战"; the overlay and the effects column render it; the effects column also says "还剩 N 场作战").
-**Multi-round cards last two battles** (`choices.js MULTI_ROUND_BOUNTY_BATTLES = 2`, `bountyBattles` / `bountyText`): the
-user does not remember any multi-round bounty (playtest #6 answer, "我不记得有过多轮悬赏"), so until that is confirmed
-otherwise every "之后 / 后续的每场作战" card — drafted, from 教鞭 or “神秘顾客” — lasts two battles exactly like the
-"接下来两场作战" cards, and its card and effects text read "接下来两场作战" in the same blue (还剩 N 场作战).
-`MULTI_ROUND_BOUNTY_BATTLES = null` restores the official red "每场" (every later battle; effects column
-"之后的每场作战"). The 战术特训 cards are what the 教鞭 Art offers (§2.5).
+Initial bounty drafts only draw two-battle cards from reward tiers I–III; later drafts keep their own durations.
+**Multi-round cards follow the official every-battle duration**: `MULTI_ROUND_BOUNTY_BATTLES = null` restores the official red "每场" (every later battle; effects column "之后的每场作战"). The 战术特训 cards are what the 教鞭 Art offers (§2.5).
 A `choice:<effectId>` registry handler overrides the default application (§2.4).
 
 ### 1.3 Disconnects, AI takeover
@@ -647,3 +643,8 @@ receiver only), plus CUSTOM texts (eliminations, 联防, hidden core).
 * A merge completed after the prep (SETTLE effects) keeps its reward offer for the next prep; its elite goes where a prep
   merge's would — onto the tile of a consumed deployed copy (PRTS 卫戍协议/帮助 "若消耗已部署至作战区的干员，则发送至作战区
   对应位置"), else to the hand, overflowing into temp (temp pieces that arrive after the prep wait through the next prep).
+
+
+2026-10-09 PRTS correction: multi-round bounty cards now retain their official 每场 duration (the earlier two-battle override is superseded). Solo HARD decisions prepare at rounds 4, 9, 11: the first follows battle 3. 山海众头目·悬赏: 2 coins for one battle; 悬赏·隐匿III: 3 coins for two battles; 山海众头目·多轮悬赏: 1 coin every later battle.
+
+Initial enemy_initial bounty drafts use only two-battle cards of reward tiers I–III (bountyRounds: 2); later drafts retain their separate durations. The initial 山海众 card is 悬赏·隐匿III, pays 3 coins, and appears in battles 3 and 4 in co-op.

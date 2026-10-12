@@ -118,7 +118,7 @@ const BOUNTY_MODES = ['mode_multi_normal', 'mode_multi_hard', 'mode_multi_abyss'
 const HIDDEN = new Set(['enemyeffect_5', 'enemyeffect_6', 'enemyeffect_7', 'enemyeffect_8']);
 /** The official rich text of a card's battles (activity_table effectDesc): 1 / 2 battles in blue, every battle in red. */
 const DURATION_RE = { 1: /<@ba\.vup>下场(作战|战斗)<\/>/, 2: /<@ba\.vup>两场作战<\/>/, 99: /<@ba\.vdown>每场<\/>/ };
-/** The official multi-round cards ("之后 / 后续的每场作战"): two battles since the user's playtest #6 answer. */
+/** The official multi-round cards ("之后 / 后续的每场作战"): every later battle; excluded from initial drafts. */
 const MULTI = new Set(DATA.choices.cards.bounty.filter((c) => c.multiRound).map((c) => c.effectId));
 
 test('#4 the 悬赏决策 draft: PRTS 敌人轮选 cards only (no 战术特训, no 鸭爵 set), each naming its battles in the official colours', () => {
@@ -139,11 +139,11 @@ test('#4 the 悬赏决策 draft: PRTS 敌人轮选 cards only (no 战术特训, 
           cards++;
           assert.equal(c.payout, 'kill', `${modeId} R${r}: ${c.id} ${c.name} — 战术特训 comes from 法术教鞭 only`);
           assert.ok(!HIDDEN.has(c.id), `${c.id} ${c.name}: hidden from the PRTS table`);
-          assert.ok([1, 2].includes(c.rounds), `${c.id}: ${c.rounds} battles`);
+          assert.ok([1, 2, 99].includes(c.rounds), `${c.id}: ${c.rounds} battles`);
           if (MULTI.has(c.id)) {
             multi++;
-            assert.equal(c.rounds, 2, `${c.id} ${c.name}: a multi-round card lasts two battles (the user's call)`);
-            assert.ok(!/每场/.test(c.descRaw || ''), `${c.id}: no 每场 left in the card text`);
+            assert.equal(c.rounds, 99, `${c.id} ${c.name}: every later battle`);
+            assert.match(c.descRaw || '', /每场/, `${c.id}: official every-battle text`);
           }
           assert.match(c.descRaw || '', DURATION_RE[c.rounds], `${c.id} ${c.name}: the card text shows its battles (${c.descRaw})`);
           assert.equal(cardView(c).descRaw, c.descRaw, 'the public card carries the rich text (ui/choiceOverlay.js renders it first)');
@@ -153,7 +153,7 @@ test('#4 the 悬赏决策 draft: PRTS 敌人轮选 cards only (no 战术特训, 
     }
   }
   assert.ok(bountyDrafts >= 100 && cards >= 400, `${bountyDrafts} bounty drafts, ${cards} cards`);
-  assert.ok(withMulti > 0, 'the multi-round cards are still offered (PRTS lists them), as two-battle cards');
+  assert.ok(withMulti > 0, 'the multi-round cards are still offered (PRTS lists them), in later drafts');
 });
 
 test('#4 data: cards.bounty marks the draft pool after the PRTS table — 战术特训 (教鞭) and the 鸭爵 set are out, the multi-round cards and 源石虫·特训 in', () => {
@@ -177,7 +177,15 @@ test('#4 data: cards.bounty marks the draft pool after the PRTS table — 战术
 function pickAtR3(seed, want) {
   const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, bots: 1, seed, fake: true }).start();
   const m = h.m;
-  const ok = h.drive(() => m.phase === PHASE.SP_DRAFT && m.round === 3, { ready: true });
+  m.handle('p_0', { t: 'g.infoReady' });
+  h.run(() => m.phase === PHASE.BAND_DRAFT);
+  while (m.phase === PHASE.BAND_DRAFT) {
+    if (m.draftTurn() === 'p_0') m.handle('p_0', { t: 'g.band', bandId: m.timeoutBand('p_0') });
+    else h.sched.runNext();
+  }
+  h.toPrep(2);
+  m.handle('p_0', { t: 'g.ready', ready: true });
+  const ok = h.run(() => m.phase === PHASE.SP_DRAFT && m.round === 3);
   assert.ok(ok && m.sp.family === 'bounty', `seed ${seed}: the R3 bounty draft`);
   let picked = null;
   for (let guard = 0; guard < 200 && m.phase === PHASE.SP_DRAFT; guard++) {
@@ -220,28 +228,20 @@ test('#4 E2E (co-op 绝境, the real R3 draft): a 1–2-battle bounty\'s enemies
   assert.ok(seen.includes(2), 'a two-battle card was picked at least once');
 });
 
-test('#4 E2E: a multi-round card lasts two battles like the "两场作战" cards — blue text on the card and in the effects column (the user\'s call)', () => {
-  // "我不记得有过多轮悬赏" (user, after playtest #6): choices.js MULTI_ROUND_BOUNTY_BATTLES = 2; null restores 每场
-  assert.equal(MULTI_ROUND_BOUNTY_BATTLES, 2);
-  let done = false;
-  for (let seed = 1; seed <= 40 && !done; seed++) {
-    const { h, m, ps, picked } = pickAtR3(700 + seed, (c) => MULTI.has(c.id));
-    if (!picked) { m.dispose(); continue; }
-    done = true;
-    assert.equal(picked.rounds, 2);
-    assert.match(picked.descRaw, /接下来<@ba\.vup>两场作战<\/>/, 'the draft card says 两场作战 in blue');
-    assert.ok(!/每场/.test(picked.descRaw), 'no red 每场');
-    const b = ps.bounties.find((x) => x.card.effectId === picked.id);
-    assert.equal(b.roundsLeft, 2);
-    const e = ps.privateView().effects.find((x) => x.id === b.id);
-    assert.equal(e.counterText, '还剩 2 场作战');
-    assert.match(e.desc, /<@ba\.vup>两场作战<\/>/, 'the effects tooltip says the same');
-    h.drive(() => m.phase === PHASE.ROUND_START && m.round === 9, { ready: true });
-    assert.deepEqual(bountyRounds(b.id), [3, 4], 'its enemy comes for two battles, then never again');
-    assert.ok(!ps.bounties.some((x) => x.id === b.id), 'and the bounty is gone');
-    m.dispose();
-  }
-  assert.ok(done, 'some R3 draft offered a multi-round card');
+test('#4 E2E: multi-round bounties continue every battle and keep their official text', () => {
+  assert.equal(MULTI_ROUND_BOUNTY_BATTLES, null);
+  const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, bots: 1, seed: 701, fake: true }).start();
+  h.toPrep(1);
+  const ps = h.ps('p_0');
+  const card = DATA.choices.cards.bounty.find(c => c.effectId === 'enemyeffect_4');
+  const id = h.m.addBounty(ps, card);
+  const e = ps.privateView().effects.find(x => x.id === id);
+  assert.equal(e.counterText, '之后的每场作战');
+  assert.match(e.desc, /<@ba\.vdown>每场<\/>/);
+  h.drive(() => h.m.phase === PHASE.ROUND_START && h.m.round === 9, { ready: true });
+  assert.deepEqual(bountyRounds(id), [1,2,3,4,5,6,7,8]);
+  assert.ok(ps.bounties.some(x => x.id === id));
+  h.m.dispose();
 });
 
 test('#4 the active bounty says how many battles it has left, with its card text in the official colours (effects column)', () => {

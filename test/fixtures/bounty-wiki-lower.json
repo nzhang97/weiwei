@@ -1,0 +1,1256 @@
+{
+  "source": "https://prts.wiki/w/卫戍协议：盟约_下半/PRTS盟约记录",
+  "checked": "2026-10-09",
+  "cards": [
+    {
+      "id": "enemyeffect_3_2",
+      "name": "法术大师A2·悬赏",
+      "enemy": "法术大师A2",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1041_lazerd_2"
+    },
+    {
+      "id": "enemyeffect_3_3",
+      "name": "元核孽生者·悬赏",
+      "enemy": "元核孽生者",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1439_dslntf"
+    },
+    {
+      "id": "enemyeffect_3_4",
+      "name": "山海众头目·悬赏",
+      "enemy": "山海众头目",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1299_ymkilr"
+    },
+    {
+      "id": "enemyeffect_3_2_e",
+      "name": "“萨科塔之眼”·悬赏",
+      "enemy": "“萨科塔之眼”",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10084_hlegle"
+    },
+    {
+      "id": "enemyeffect_3_3_e",
+      "name": "幽灵组长·悬赏",
+      "enemy": "幽灵组长",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1026_aghost"
+    },
+    {
+      "id": "enemyeffect_3_4_e",
+      "name": "重装防御者·悬赏",
+      "enemy": "重装防御者",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1006_shield"
+    },
+    {
+      "id": "enemyeffect_3_5_e",
+      "name": "重弩突袭者·悬赏",
+      "enemy": "重弩突袭者",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1404_msnip"
+    },
+    {
+      "id": "enemyeffect_4",
+      "name": "山海众头目·多轮悬赏",
+      "enemy": "山海众头目",
+      "count": 1,
+      "coin": 1,
+      "rounds": 99,
+      "payout": "kill",
+      "enemyKey": "enemy_1299_ymkilr"
+    },
+    {
+      "id": "enemyeffect_b_1",
+      "name": "碎骨·悬赏",
+      "enemy": "碎骨",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1500_skulsr"
+    },
+    {
+      "id": "enemyeffect_b_2",
+      "name": "萨卡兹百夫长·悬赏",
+      "enemy": "萨卡兹百夫长",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1501_demonk"
+    },
+    {
+      "id": "enemyeffect_b_3",
+      "name": "弑君者·悬赏",
+      "enemy": "弑君者",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1502_crowns"
+    },
+    {
+      "id": "enemyeffect_b_4",
+      "name": "泥岩·悬赏",
+      "enemy": "泥岩",
+      "count": 1,
+      "coin": 4,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1511_mdrock"
+    },
+    {
+      "id": "enemyeffect_b_5",
+      "name": "腐败骑士·悬赏",
+      "enemy": "腐败骑士",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1513_dekght"
+    },
+    {
+      "id": "enemyeffect_b_6",
+      "name": "凋零骑士·悬赏",
+      "enemy": "凋零骑士",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1513_dekght_2"
+    },
+    {
+      "id": "enemyeffect_b_7",
+      "name": "“遗弃者”·悬赏",
+      "enemy": "“遗弃者”",
+      "count": 1,
+      "coin": 4,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_2005_axetro"
+    },
+    {
+      "id": "enemyeffect_b_8",
+      "name": "喷气人·悬赏",
+      "enemy": "喷气人",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_2004_balloon"
+    },
+    {
+      "id": "enemyeffect_b_9",
+      "name": "杰斯顿·威廉姆斯·悬赏",
+      "enemy": "杰斯顿·威廉姆斯",
+      "count": 1,
+      "coin": 4,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1516_jakill"
+    },
+    {
+      "id": "enemyeffect_b_10",
+      "name": "W·悬赏",
+      "enemy": "W",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1504_cqbw"
+    },
+    {
+      "id": "enemyeffect_b_11",
+      "name": "“鼠王”·悬赏",
+      "enemy": "“鼠王”",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1509_mousek"
+    },
+    {
+      "id": "enemyeffect_b_12",
+      "name": "“庞贝”·悬赏",
+      "enemy": "“庞贝”",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1050_lslime"
+    },
+    {
+      "id": "enemyeffect_b_13",
+      "name": "大鲍勃·悬赏",
+      "enemy": "大鲍勃",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1001_bigbo"
+    },
+    {
+      "id": "enemyeffect_b_14",
+      "name": "“自在”·悬赏",
+      "enemy": "“自在”",
+      "count": 1,
+      "coin": 4,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1517_xi"
+    },
+    {
+      "id": "enemyeffect_b_15",
+      "name": "锏·悬赏",
+      "enemy": "锏",
+      "count": 1,
+      "coin": 5,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1525_blkswb"
+    },
+    {
+      "id": "enemyeffect_b_16",
+      "name": "扎罗，“狼之主”·悬赏",
+      "enemy": "扎罗",
+      "count": 1,
+      "coin": 5,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1535_wlfmster"
+    },
+    {
+      "id": "enemyeffect_b_17",
+      "name": "“墓碑”·悬赏",
+      "enemy": "“墓碑”",
+      "count": 1,
+      "coin": 4,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_2008_flking"
+    },
+    {
+      "id": "enemyeffect_b_18",
+      "name": "迷路的巨像·悬赏",
+      "enemy": "迷路的巨像",
+      "count": 1,
+      "coin": 5,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_2003_rockman"
+    },
+    {
+      "id": "enemyeffect_b_19",
+      "name": "澪·悬赏",
+      "enemy": "澪",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10118_ymgprc"
+    },
+    {
+      "id": "enemyeffect_b_20",
+      "name": "巨大的丑东西·悬赏",
+      "enemy": "巨大的丑东西",
+      "count": 1,
+      "coin": 5,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1512_mcmstr"
+    },
+    {
+      "id": "enemyeffect_b_21",
+      "name": "“复仇者”·悬赏",
+      "enemy": "“复仇者”",
+      "count": 1,
+      "coin": 6,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1539_reid"
+    },
+    {
+      "id": "enemyeffect_b_22",
+      "name": "“邪魔的利刃”·悬赏",
+      "enemy": "“邪魔的利刃”",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_2048_smgrd"
+    },
+    {
+      "id": "enemyeffect_b_23",
+      "name": "陷落雪祀·悬赏",
+      "enemy": "陷落雪祀",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_2050_smsha"
+    },
+    {
+      "id": "enemyeffect_b_24",
+      "name": "纠缠藤蔓·悬赏",
+      "enemy": "纠缠藤蔓",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_2052_smgia"
+    },
+    {
+      "id": "enemyInitial_1",
+      "name": "多轮悬赏 · 假想敌：蚀裂",
+      "enemy": "假想敌：蚀裂",
+      "count": 1,
+      "coin": 1,
+      "rounds": 99,
+      "payout": "kill",
+      "enemyKey": "enemy_9006_actoxi"
+    },
+    {
+      "id": "enemyInitial_2",
+      "name": "多轮悬赏 · 假想敌：淤困",
+      "enemy": "假想敌：淤困",
+      "count": 1,
+      "coin": 1,
+      "rounds": 99,
+      "payout": "kill",
+      "enemyKey": "enemy_9007_acelem"
+    },
+    {
+      "id": "enemyInitial_3",
+      "name": "多轮悬赏 · 假想敌：骨刺",
+      "enemy": "假想敌：骨刺",
+      "count": 1,
+      "coin": 1,
+      "rounds": 99,
+      "payout": "kill",
+      "enemyKey": "enemy_9008_acbunn"
+    },
+    {
+      "id": "enemyInitial_4",
+      "name": "多轮悬赏 · 假想敌：黑云",
+      "enemy": "假想敌：黑云",
+      "count": 1,
+      "coin": 1,
+      "rounds": 99,
+      "payout": "kill",
+      "enemyKey": "enemy_9009_acfort"
+    },
+    {
+      "id": "enemyInitial_5",
+      "name": "多轮悬赏 · 假想敌：再生",
+      "enemy": "假想敌：再生",
+      "count": 1,
+      "coin": 1,
+      "rounds": 99,
+      "payout": "kill",
+      "enemyKey": "enemy_9010_acpupp"
+    },
+    {
+      "id": "enemyInitial_6",
+      "name": "多轮悬赏 · 假想敌：镜膜",
+      "enemy": "假想敌：镜膜",
+      "count": 1,
+      "coin": 1,
+      "rounds": 99,
+      "payout": "kill",
+      "enemyKey": "enemy_9011_acrefr"
+    },
+    {
+      "id": "enemyeffect_10_4",
+      "name": "悬赏·飞行I",
+      "enemy": "妖怪",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1005_yokai"
+    },
+    {
+      "id": "enemyeffect_10_7",
+      "name": "悬赏·飞行I",
+      "enemy": "法术大师A2",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1041_lazerd_2"
+    },
+    {
+      "id": "enemyeffect_10_5",
+      "name": "悬赏·飞行II",
+      "enemy": "暴鸰",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1040_bombd"
+    },
+    {
+      "id": "enemyeffect_10_8",
+      "name": "悬赏·飞行II",
+      "enemy": "枯朽萃聚使徒",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1321_wdarft"
+    },
+    {
+      "id": "enemyeffect_19_4",
+      "name": "悬赏·飞行II",
+      "enemy": "吉兆飞鳞",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10045_parrot"
+    },
+    {
+      "id": "enemyeffect_10_6",
+      "name": "悬赏·飞行III",
+      "enemy": "法术大师A1",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1041_lazerd"
+    },
+    {
+      "id": "enemyeffect_11_4",
+      "name": "悬赏·频次I",
+      "enemy": "磨砻",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1195_sfyin"
+    },
+    {
+      "id": "enemyeffect_11_7",
+      "name": "悬赏·频次I",
+      "enemy": "沏虹",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1203_sfhu_2"
+    },
+    {
+      "id": "enemyeffect_20_2",
+      "name": "悬赏·频次I",
+      "enemy": "俗心",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1197_sfshu"
+    },
+    {
+      "id": "enemyeffect_11_5",
+      "name": "悬赏·频次II",
+      "enemy": "烹泉",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1203_sfhu"
+    },
+    {
+      "id": "enemyeffect_11_8",
+      "name": "悬赏·频次II",
+      "enemy": "新硎",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1207_sfji_2"
+    },
+    {
+      "id": "enemyeffect_11_6",
+      "name": "悬赏·频次III",
+      "enemy": "沉沙",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1207_sfji"
+    },
+    {
+      "id": "enemyeffect_12_4",
+      "name": "悬赏·损伤I",
+      "enemy": "底海滑动者",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1148_dssbr"
+    },
+    {
+      "id": "enemyeffect_12_7",
+      "name": "悬赏·损伤I",
+      "enemy": "灼藤",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10067_ftsjc"
+    },
+    {
+      "id": "enemyeffect_16_11",
+      "name": "悬赏·损伤Ⅰ",
+      "enemy": "心虚设计师",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10097_crshd"
+    },
+    {
+      "id": "enemyeffect_18_1",
+      "name": "悬赏·损伤Ⅰ",
+      "enemy": "临时收音师",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10094_crstf"
+    },
+    {
+      "id": "enemyeffect_12_5",
+      "name": "悬赏·损伤II",
+      "enemy": "控潮术师",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1161_tidmag"
+    },
+    {
+      "id": "enemyeffect_12_8",
+      "name": "悬赏·损伤II",
+      "enemy": "异光体孽生者",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1439_dslntf_2"
+    },
+    {
+      "id": "enemyeffect_20_5",
+      "name": "悬赏·损伤II",
+      "enemy": "无胄盟清扫小队",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1183_mlasrt"
+    },
+    {
+      "id": "enemyeffect_12_6",
+      "name": "悬赏·损伤III",
+      "enemy": "术师快艇",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1162_magmot"
+    },
+    {
+      "id": "enemyeffect_18_6",
+      "name": "悬赏·损伤III",
+      "enemy": "主角阵营角色",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10098_crhro"
+    },
+    {
+      "id": "enemyeffect_19_6",
+      "name": "悬赏·损伤III",
+      "enemy": "反派阵营角色",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10099_crvln"
+    },
+    {
+      "id": "enemyeffect_20_6",
+      "name": "悬赏·损伤III",
+      "enemy": "鼎沸",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10054_cjhot"
+    },
+    {
+      "id": "enemyeffect_13_4",
+      "name": "悬赏·持续I",
+      "enemy": "萨卡兹枯朽战士组长",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1267_nhpbr_2"
+    },
+    {
+      "id": "enemyeffect_13_7",
+      "name": "悬赏·持续I",
+      "enemy": "假想敌：蚀裂",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_9006_actoxi"
+    },
+    {
+      "id": "enemyeffect_20_1",
+      "name": "悬赏·持续I",
+      "enemy": "萨卡兹枯朽战士",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1267_nhpbr"
+    },
+    {
+      "id": "enemyeffect_13_5",
+      "name": "悬赏·持续II",
+      "enemy": "逐腐兽",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1270_nhstlk"
+    },
+    {
+      "id": "enemyeffect_13_8",
+      "name": "悬赏·持续II",
+      "enemy": "尖端萨卡兹枯朽战车",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1272_nhtank_2"
+    },
+    {
+      "id": "enemyeffect_13_6",
+      "name": "悬赏·持续III",
+      "enemy": "萨卡兹枯朽战车",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1272_nhtank"
+    },
+    {
+      "id": "enemyeffect_14_4",
+      "name": "悬赏·隐匿I",
+      "enemy": "隐形弩手",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1019_jshoot"
+    },
+    {
+      "id": "enemyeffect_14_7",
+      "name": "悬赏·隐匿I",
+      "enemy": "重弩突袭者",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1404_msnip"
+    },
+    {
+      "id": "enemyeffect_14_5",
+      "name": "悬赏·隐匿II",
+      "enemy": "隐形术师",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1023_jmage"
+    },
+    {
+      "id": "enemyeffect_14_8",
+      "name": "悬赏·隐匿II",
+      "enemy": "家族暗影灭迹人",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1283_sgkill_2"
+    },
+    {
+      "id": "enemyeffect_14_6",
+      "name": "悬赏·隐匿III",
+      "enemy": "山海众头目",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1299_ymkilr"
+    },
+    {
+      "id": "enemyeffect_15_4",
+      "name": "悬赏·折射I",
+      "enemy": "深池方阵战士",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1169_duphlx"
+    },
+    {
+      "id": "enemyeffect_19_3",
+      "name": "悬赏·折射I",
+      "enemy": "深池侦察犬pro",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1165_duhond_2"
+    },
+    {
+      "id": "enemyeffect_15_7",
+      "name": "悬赏·折射II",
+      "enemy": "深池重甲卫士队长",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1170_dushld_2"
+    },
+    {
+      "id": "enemyeffect_15_5",
+      "name": "悬赏·折射II",
+      "enemy": "深池暗影术师",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1168_dumage"
+    },
+    {
+      "id": "enemyeffect_15_8",
+      "name": "悬赏·折射II",
+      "enemy": "愤怒的守墓石像",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1172_dugago_2"
+    },
+    {
+      "id": "enemyeffect_15_6",
+      "name": "悬赏·折射III",
+      "enemy": "深池伙友卫队",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1174_duholy"
+    },
+    {
+      "id": "enemyeffect_16_12",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "转译基底·α",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10081_mpplai"
+    },
+    {
+      "id": "enemyeffect_17_1",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "雪孩子",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10138_xdsnow"
+    },
+    {
+      "id": "enemyeffect_17_2",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "新手祭司学徒",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10156_mncrer"
+    },
+    {
+      "id": "enemyeffect_17_3",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "冒失的小弟",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10112_ymgds"
+    },
+    {
+      "id": "enemyeffect_18_2",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "迷茫的修理小助手",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10073_mpcar"
+    },
+    {
+      "id": "enemyeffect_18_3",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "高能源石虫",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1021_bslime"
+    },
+    {
+      "id": "enemyeffect_19_1",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "节日气球",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10040_cnvbln"
+    },
+    {
+      "id": "enemyeffect_19_2",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "简饲源石虫",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10001_trslim"
+    },
+    {
+      "id": "enemyeffect_20_3",
+      "name": "悬赏·特异Ⅰ",
+      "enemy": "潜伏者",
+      "count": 1,
+      "coin": 1,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1009_lurker"
+    },
+    {
+      "id": "enemyeffect_16_9",
+      "name": "悬赏·特异II",
+      "enemy": "拥霜羽兽",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10141_xdpeng_2"
+    },
+    {
+      "id": "enemyeffect_16_10",
+      "name": "悬赏·特异II",
+      "enemy": "异质裂兽·α",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10127_rkmbst_2"
+    },
+    {
+      "id": "enemyeffect_17_4",
+      "name": "悬赏·特异II",
+      "enemy": "骇笑看客",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_2009_csaudc"
+    },
+    {
+      "id": "enemyeffect_17_5",
+      "name": "悬赏·特异II",
+      "enemy": "水遁忍者",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10116_ymgtop"
+    },
+    {
+      "id": "enemyeffect_18_4",
+      "name": "悬赏·特异II",
+      "enemy": "圣堂剑士",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10087_hlchgr"
+    },
+    {
+      "id": "enemyeffect_18_5",
+      "name": "悬赏·特异II",
+      "enemy": "寻仇者",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1025_reveng"
+    },
+    {
+      "id": "enemyeffect_19_5",
+      "name": "悬赏·特异II",
+      "enemy": "咸鳞汁推荐者",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10044_wintun"
+    },
+    {
+      "id": "enemyeffect_20_4",
+      "name": "悬赏·特异II",
+      "enemy": "“独轮车玩具”",
+      "count": 1,
+      "coin": 2,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10018_sgrobh"
+    },
+    {
+      "id": "enemyeffect_16_1",
+      "name": "悬赏·特异III",
+      "enemy": "泥岩巨像",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1092_mdgint"
+    },
+    {
+      "id": "enemyeffect_16_2",
+      "name": "悬赏·特异III",
+      "enemy": "“越长尘”",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_1302_ymtro_2"
+    },
+    {
+      "id": "enemyeffect_16_3",
+      "name": "悬赏·特异III",
+      "enemy": "狂暴宿主组长",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1062_rager_2"
+    },
+    {
+      "id": "enemyeffect_16_4",
+      "name": "悬赏·特异III",
+      "enemy": "温顺的武装大驮兽",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1415_mmkabi_2"
+    },
+    {
+      "id": "enemyeffect_16_5",
+      "name": "悬赏·特异III",
+      "enemy": "萨卡兹骸骨拷打者",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1364_spnaxe_2"
+    },
+    {
+      "id": "enemyeffect_16_6",
+      "name": "悬赏·特异III",
+      "enemy": "高准度伦蒂尼姆城防自行炮",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1273_stmgun_2"
+    },
+    {
+      "id": "enemyeffect_16_7",
+      "name": "悬赏·特异III",
+      "enemy": "乌顶巨角卢鲁",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10144_xdelk_2"
+    },
+    {
+      "id": "enemyeffect_16_8",
+      "name": "悬赏·特异III",
+      "enemy": "伊利昂的木驮兽",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_10159_mntrjn"
+    },
+    {
+      "id": "enemyeffect_17_6",
+      "name": "悬赏·特异III",
+      "enemy": "自制投石机",
+      "count": 1,
+      "coin": 3,
+      "rounds": 2,
+      "payout": "kill",
+      "enemyKey": "enemy_10162_mnctpt"
+    },
+    {
+      "id": "enemyeffect_5_1",
+      "name": "源石虫·特训",
+      "enemy": "源石虫",
+      "count": 1,
+      "coin": 0,
+      "rounds": 1,
+      "payout": "kill",
+      "enemyKey": "enemy_1007_slime"
+    },
+    {
+      "id": "enemyeffect_1",
+      "name": "无人机护障·P·战术特训",
+      "enemy": "无人机护障·P",
+      "count": 3,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1355_mrfly_2"
+    },
+    {
+      "id": "enemyeffect_2",
+      "name": "法术大师A2·多轮战术特训",
+      "enemy": "法术大师A2",
+      "count": 2,
+      "coin": 2,
+      "rounds": 99,
+      "payout": "perfect",
+      "enemyKey": "enemy_1041_lazerd_2"
+    },
+    {
+      "id": "enemyeffect_10_1",
+      "name": "战术特训·飞行I",
+      "enemy": "妖怪",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1005_yokai"
+    },
+    {
+      "id": "enemyeffect_10_2",
+      "name": "战术特训·飞行II",
+      "enemy": "暴鸰",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1040_bombd"
+    },
+    {
+      "id": "enemyeffect_10_3",
+      "name": "战术特训·飞行III",
+      "enemy": "帝国炮火中枢先兆者",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1112_emppnt_2"
+    },
+    {
+      "id": "enemyeffect_11_1",
+      "name": "战术特训·频次I",
+      "enemy": "磨砻",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1195_sfyin"
+    },
+    {
+      "id": "enemyeffect_11_2",
+      "name": "战术特训·频次II",
+      "enemy": "烹泉",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1203_sfhu"
+    },
+    {
+      "id": "enemyeffect_11_3",
+      "name": "战术特训·频次III",
+      "enemy": "新硎",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1207_sfji_2"
+    },
+    {
+      "id": "enemyeffect_12_1",
+      "name": "战术特训·损伤I",
+      "enemy": "底海滑动者",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1148_dssbr"
+    },
+    {
+      "id": "enemyeffect_12_2",
+      "name": "战术特训·损伤II",
+      "enemy": "炽焰源石虫",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1305_mhslim_2"
+    },
+    {
+      "id": "enemyeffect_12_3",
+      "name": "战术特训·损伤III",
+      "enemy": "灼藤",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_10067_ftsjc"
+    },
+    {
+      "id": "enemyeffect_13_1",
+      "name": "战术特训·持续I",
+      "enemy": "逐腐兽",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1270_nhstlk"
+    },
+    {
+      "id": "enemyeffect_13_2",
+      "name": "战术特训·持续II",
+      "enemy": "萨卡兹枯朽战士组长",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1267_nhpbr_2"
+    },
+    {
+      "id": "enemyeffect_13_3",
+      "name": "战术特训·持续III",
+      "enemy": "尖端萨卡兹枯朽战车",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1272_nhtank_2"
+    },
+    {
+      "id": "enemyeffect_14_1",
+      "name": "战术特训·隐匿I",
+      "enemy": "隐形弩手",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1019_jshoot"
+    },
+    {
+      "id": "enemyeffect_14_2",
+      "name": "战术特训·隐匿II",
+      "enemy": "节日爵士乐手",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_10034_cnvsax"
+    },
+    {
+      "id": "enemyeffect_14_3",
+      "name": "战术特训·隐匿III",
+      "enemy": "家族灭迹人",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1283_sgkill"
+    },
+    {
+      "id": "enemyeffect_15_1",
+      "name": "战术特训·折射I",
+      "enemy": "深池方阵战士",
+      "count": 1,
+      "coin": 1,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1169_duphlx"
+    },
+    {
+      "id": "enemyeffect_15_2",
+      "name": "战术特训·折射II",
+      "enemy": "深池暗影术师队长",
+      "count": 1,
+      "coin": 2,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1168_dumage_2"
+    },
+    {
+      "id": "enemyeffect_15_3",
+      "name": "战术特训·折射III",
+      "enemy": "深池伙友卫队精英",
+      "count": 1,
+      "coin": 3,
+      "rounds": 1,
+      "payout": "perfect",
+      "enemyKey": "enemy_1174_duholy_2"
+    }
+  ]
+}

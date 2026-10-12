@@ -473,6 +473,12 @@ test('coin / refresh counters: 溯光星源 121 per 3 spent, 阿罗玛 122 / 安
         assert.equal(s.G(g.bbStr.bond), g.bb.layer, `${gid} ${where}`);
         s.m.handle('p_0', { t: 'g.refresh' });
         assert.equal(s.G(g.bbStr.bond), g.bb.layer, 'only the first refresh of the round');
+        // a copy obtained after this round's first refresh fires on its own first refresh (counted per copy)
+        give(s.m, s.ps, owner, 'hand');
+        s.m.handle('p_0', { t: 'g.refresh' });
+        assert.equal(s.G(g.bbStr.bond), 2 * g.bb.layer, `${gid} ${where}: new copy fires on the next refresh`);
+        s.m.handle('p_0', { t: 'g.refresh' });
+        assert.equal(s.G(g.bbStr.bond), 2 * g.bb.layer, 'each copy once per round');
       }
     }
     cover(gid);
@@ -513,7 +519,7 @@ test('SERVER_CHESS_PRICE: 购买价格为1 — bb.price is the discount off the 
   assert.equal(GR('garrison_13_b').bb.price, 2);
 });
 
-test('regression: 购买价格为1 runs before the other price modifiers (远见 −1 never below 1 leaves 至简 at 1)', () => {
+test('regression: 购买价格为1 runs before the other price modifiers (远见 −1 makes 至简 free)', () => {
   const s = setup();
   const seen = [];
   s.m.dispatcher.registry.global('gar_test_seen', { onPrice(ctx, ev) { seen.push(ev.price); } });
@@ -522,8 +528,8 @@ test('regression: 购买价格为1 runs before the other price modifiers (远见
     s.ps.shop.slots[1] = { kind: 'chess', id: 'chess_char_1_02_a', basePrice: 2, frozen: false, sold: false };
     assert.equal(s.ps.priceOf(s.ps.shop.slots[0]), 1);
     assert.deepEqual(seen, [1], 'a global modifier already sees 至简 at 1');
-    s.ps.counters['bondaddon:visi:disc'] = 2;             // 远见 150 layers: every chess −1, never below 1
-    assert.equal(s.ps.priceOf(s.ps.shop.slots[0]), 1, '至简 3 − 2 = 1; 远见 leaves it at 1');
+    s.ps.counters['bondaddon:visi:disc'] = 2;             // 远见 150 layers: every chess −1, never below 0
+    assert.equal(s.ps.priceOf(s.ps.shop.slots[0]), 0, '至简 3 − 2 − 1 = 0');
     assert.equal(s.ps.priceOf(s.ps.shop.slots[1]), 1, 'other chess: 2 − 1');
   } finally {
     s.m.dispatcher.registry.unregister('global:gar_test_seen');

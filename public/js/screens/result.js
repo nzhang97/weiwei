@@ -11,7 +11,7 @@
 //                 stats: { dmgDealt, kills, leaks, gold /* funds SPENT */, refreshes, merges, bossDamage?, itemsEquipped?,
 //                          activatedLayers?, lpLost?, perfectRounds? } }] }
 
-import { useEffect } from '../../vendor/hooks.module.js';
+import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, DifficultyTag } from '../ui/components.js';
 import { useGameData, Img, UnitThumb, BandIcon, PlayerAvatar, BondGlyph, LpTower, Sprite } from '../ui/gameComponents.js';
 import { normalizeResult, fmtNum } from '../ui/gameLogic.js';
@@ -84,6 +84,19 @@ export function ResultScreen() {
   }
   useEffect(() => { audio.sfx(r.victory ? 'settlementSucceed' : 'settlementFail'); }, []);
   const back = () => store.set({ match: emptyMatch() });
+  // 玩家操作记录 (server/match/actionLog.js): the server attaches the id when a human played; 提交给AI学习 copies it
+  // into logs/ai_training on the server machine (GET /api/actionlog/<id>/submit), 下载 saves the JSON locally
+  const logId = res && typeof res.actionLogId === 'string' && /^[0-9A-Za-z_-]+$/.test(res.actionLogId) ? res.actionLogId : null;
+  const [sent, setSent] = useState(null); // null | 'busy' | 'ok' | 'fail'
+  const submitLog = async () => {
+    if (!logId || sent === 'busy' || sent === 'ok') return;
+    setSent('busy');
+    try {
+      const r = await fetch(`/api/actionlog/${logId}/submit`, { cache: 'no-store' });
+      const j = await r.json().catch(() => ({}));
+      setSent(r.ok && j.ok ? 'ok' : 'fail');
+    } catch { setSent('fail'); }
+  };
   const boss = r.bossId ? gd.boss(r.bossId) : null;
   // the Hidden Core medal (and its corrupted leader) only once R15 was actually fought
   const hidden = r.hiddenBossId && r.hiddenReached ? gd.boss(r.hiddenBossId) : null;
@@ -115,6 +128,10 @@ export function ResultScreen() {
         ${mins ? html`<p class="result__time t-lo">本局耗时 <b class="num">${mins}</b> 分钟</p>` : null}
         <footer class="result__foot">
           <${Button} variant="primary" size="xl" icon="chevronLeft" onClick=${back}>${hasRoom ? '返回同盟' : '返回大厅'}<//>
+          ${logId ? html`<${Button} variant="secondary" size="xl" icon=${sent === 'ok' ? 'check' : undefined} loading=${sent === 'busy'}
+            disabled=${sent === 'ok'} title="把本局的全部操作与每回合局面保存到 logs/ai_training，供AI学习" onClick=${submitLog}>
+            ${sent === 'ok' ? '已提交给AI学习' : sent === 'fail' ? '提交失败，点击重试' : '提交给AI学习'}<//>
+          <a class="result__dl t-lo" href=${`/api/actionlog/${logId}.json`} download=${`${logId}.json`}>下载操作记录</a>` : null}
         </footer>
       </section>
       <section class="result__players">

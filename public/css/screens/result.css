@@ -76,3 +76,8 @@
 .rstat.is-best b { color: var(--gold); }
 .result__foot { margin-top: auto; padding-top: .2rem; display: flex; }
 .result__foot .btn { min-width: 3.4rem; }
+
+/* 玩家操作记录: 提交给AI学习 / 下载操作记录 (screens/result.js) */
+.result__foot { gap: .25rem; align-items: center; flex-wrap: wrap; }
+.result__dl { font-size: .62rem; text-decoration: underline; opacity: .8; }
+

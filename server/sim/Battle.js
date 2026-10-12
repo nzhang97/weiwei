@@ -1876,9 +1876,12 @@ export class Battle {
     return this.pull(e, force, { to: { x: unit.x + f[1] * PULL_ORIGIN, y: unit.y + f[0] * PULL_ORIGIN }, center: unit, stop: PULL_STOP_RADIUS });
   }
 
-  /** Can `e` be displaced at all: a living enemy, not a leader part of the boss pool, not 失衡免疫 (近地悬浮, 浮空). */
+  /**
+   * Can `e` be displaced at all: a living enemy, not a leader part of the boss pool, not 失衡免疫 (近地悬浮, 浮空), and
+   * not a flying unit — 推/拉 (薄绿, 莫斯提马, …) have no effect on 飞行 enemies (user rule, 2026-10-12).
+   */
   _displaceable(e) {
-    return !!(e && e.alive && e.side === 'enemy' && !e.isBoss && !e.s.flags.noDisplace);
+    return !!(e && e.alive && e.side === 'enemy' && !e.isBoss && !e.s.flags.noDisplace && !e.isFlying);
   }
 
   /**

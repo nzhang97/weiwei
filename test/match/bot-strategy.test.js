@@ -65,10 +65,13 @@ test('moving a deck-counted bond member off board preserves its activation in li
 test('first-refresh layers are credited once and refresh growth stops at its per-round and global caps', (t) => {
   const { m, ps } = setup(t);
   put(m, ps, '德克萨斯'); put(m, ps, '普罗旺斯'); put(m, ps, '伺夜');
-  give(m, ps, byName(m, '拉普兰德'));
+  const lap = give(m, ps, byName(m, '拉普兰德'));
   ps.round.refreshes = 0;
   assert.ok(refreshValue(m, ps) > 0);
+  // this copy has had its first refresh of the round (per-copy rule, garrisons/meta.js)
   ps.round.refreshes = 1;
+  ps.counters[`refreshLayer:garrison_123_a:${lap.uid}:round`] = m.round;
+  ps.counters[`refreshLayer:garrison_123_a:${lap.uid}:count`] = 1;
   assert.equal(refreshValue(m, ps), 0);
   put(m, ps, '安洁莉娜');
   assert.ok(refreshValue(m, ps) > 0);
@@ -189,9 +192,9 @@ test('investor repeats acquisition traits and layer estimates remain capped', (t
   const c = { id: byName(m, '角峰'), kind: 'chess', items: [] };
   const single = traitValue(m, ps, c, ['SERVER_GAIN']);
   ps.bonds.investShip = { active: true, tier: 1, layers: 0 };
-  assert.equal(traitValue(m, ps, c, ['SERVER_GAIN']), single * 2);
+  assert.ok(Math.abs(traitValue(m, ps, c, ['SERVER_GAIN']) - single * 2) < 1e-9);
   ps.bonds.investShip.layers = 100;
-  assert.equal(traitValue(m, ps, c, ['SERVER_GAIN']), single * 3);
+  assert.ok(Math.abs(traitValue(m, ps, c, ['SERVER_GAIN']) - single * 3) < 1e-9);
   ps.layers.kjeragShip = 998;
   assert.ok(traitValue(m, ps, c, ['SERVER_GAIN']) < single * 3);
 });

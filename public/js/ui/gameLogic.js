@@ -20,6 +20,7 @@
 import { GEO, PHASE, UF } from '../../../shared/constants.js';
 import { resolveLoadout, loadoutOptions, MODULE_NONE } from '../../../shared/protocol.js';
 import { resolveRecordLoadout, loadoutRecord } from '../../../shared/loadoutRecord.js';
+import { summonTileAllowed } from '../../../shared/summonRange.js';
 import { layoutPen } from '../render/pen.js';
 import { BOSS_ROW_SHIFT, MAX_COL } from '../render/prepfield.js';
 import { bossLevelSeconds } from './matchStatus.js';
@@ -784,6 +785,15 @@ export function piecePosition(ctx, piece) {
   return null;
 }
 
+/** Tactician summons: the tile must lie in the owner's attack range (owner at `ownerAt` [row, col] when given). */
+export function summonAllows(ctx, piece, row, col, ownerAt = null) {
+  if (!isObj(piece) || piece.kind !== 'token' || !Number.isInteger(piece.ownerUid)) return true;
+  const own = [...ctx.boardAt.values()].find((e) => e.piece.uid === piece.ownerUid);
+  if (!own) return true;
+  const [r0, c0] = ownerAt || [own.row, own.col];
+  return summonTileAllowed(ctx.getChess(own.piece.id), r0, c0, own.piece.dir || 'RIGHT', row, col);
+}
+
 /** Whether a unit piece (chess/token) may stand on a board tile. */
 export function tileAllows(ctx, piece, row, col) {
   const pos = piecePosition(ctx, piece);
@@ -855,6 +865,12 @@ export function canPlace(ctx, uid, target) {
     if (!tileAllows(ctx, piece, row, col)) {
       const deployable = ctx.deploy.ranged.has(tileKey(row, col));
       return no('BAD_TILE', deployable && piecePosition(ctx, piece) === 'MELEE' ? '近战单位只能部署在地面' : '无法部署在该位置');
+    }
+    // a tactician's summon (伺夜 狼群, 缪尔赛思 流形 …): only inside its owner's attack range (shared/summonRange.js);
+    // swapped with its own owner, the owner then stands on the summon's old tile
+    if (piece.kind === 'token') {
+      const ownerAt = src.area === 'board' && occ && occ.piece.uid === piece.ownerUid ? [src.row, src.col] : null;
+      if (!summonAllows(ctx, piece, row, col, ownerAt)) return no('BAD_TILE', '召唤物只能部署在召唤者的攻击范围内');
     }
     if (src.area === 'board') {
       // board → board: move or swap (the occupant must be legal on the source tile)

@@ -234,3 +234,6 @@
 .free-pick-card { display: flex; align-items: center; gap: .08rem; padding: .08rem; color: var(--text-hi); background: rgba(8,11,10,.9); border: 1px solid var(--line-2); font-size: .17rem; }
 .free-pick-card img { width: .45rem; height: .6rem; object-fit: cover; }
 .free-pick-card.is-selected { border-color: var(--mint-400); background: rgba(23,249,183,.12); }
+
+.shopbar__rwcards .training-choice { justify-content:space-between; gap:.08rem; padding:.1rem; white-space:normal; color:inherit; font-size:.14rem; line-height:1.35; }
+.training-choice .rt { font-size:.12rem; line-height:1.5; }

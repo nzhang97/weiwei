@@ -239,6 +239,7 @@ export const C2S = {
   'room.setAiRound34Nerf': { enabled: isBool },
   'room.setHumanOperatorBuff': { enabled: isBool },
   'room.setFreeOperatorPick': { enabled: isBool },
+  'room.setDrawOptimization': { enabled: isBool },
   'room.addBot': {},
   'room.removeBot': { seat: (v) => isInt(v, 0, MAX_SEATS - 1) },
   'room.start': {},

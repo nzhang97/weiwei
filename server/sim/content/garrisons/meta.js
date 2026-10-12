@@ -16,7 +16,7 @@
 //   * 瑰盐 "优先…更靠上的和更靠右的": highest row first (DESIGN §3.1: row 0 is the bottom), then highest column.
 //   * 购买价格为N (SERVER_CHESS_PRICE): bb.price is a discount off the tier price — 至简 (Ⅲ, 3) has 2 → 1, 红豆 (Ⅰ, 2)
 //     has 1 → 1, exactly the N both official texts give (user playtest #5: 至简 costs 1). The dispatcher runs it before
-//     every other onPrice modifier, so 远见's discount (never below 1) and strategy caps act on the lowered price.
+//     every other onPrice modifier, so 远见's discount (can reach 0) and strategy caps act on the lowered price.
 //   * [ASSUMED] 余 SERVER_MOST_BOND: ties between most-member bonds are shuffled; the chess is a copy-weighted pool roll
 //     of any tier (the text gives no tier cap); a bond without an available chess falls through to the next tied one.
 //   * [ASSUMED] 松果: the "免费特殊招募" is a free pick-one offer of `rewardOffer.count` (3) chess of the pool's tier.
@@ -188,18 +188,29 @@ H.SERVER_ADD_REFRESH_CNT_MULTIPLIER_BOND_LAYER = {
   },
 };
 
+// 拉普兰德 "<刷新时>若为本回合首次主动刷新": counted per copy — each 拉普兰德 fires on the first active refresh it is
+// present for in a round, so a copy bought (or merged into an elite) after this round's first refresh still fires on
+// the next refresh (user rule, 2026-10-12). refresh_cnt N = that copy's N-th refresh of the round.
 H.SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT = {
   onRefresh(ctx, ev) {
     if (ev && ev.trigger) return;
-    const { bb, bbStr, garrison } = ctx.source;
-    if ((ctx.roundStats().refreshes | 0) !== num(bb.refresh_cnt, 1)) return;
+    const { bb, bbStr, garrison, piece } = ctx.source;
+    const uid = piece && Number.isInteger(piece.uid) && piece.uid > 0 ? piece.uid : null;
+    let n;
+    if (uid == null) n = ctx.roundStats().refreshes | 0;
+    else {
+      const rk = `refreshLayer:${garrison.garrisonId}:${uid}:round`, ck = `refreshLayer:${garrison.garrisonId}:${uid}:count`;
+      if (ctx.counter(rk) !== ctx.round) { ctx.setCounter(rk, ctx.round); ctx.setCounter(ck, 0); }
+      n = ctx.incCounter(ck, 1);
+    }
+    if (n !== num(bb.refresh_cnt, 1)) return;
     addAll(ctx, ids(bbStr.bond), num(bb.layer), requireActiveOf(garrison));
   },
 };
 
 // "购买价格为N": bb.price is the discount off the chess's tier price — 至简 (Ⅲ, 3 资金) carries 2 and 红豆 (Ⅰ, 2 资金)
 // carries 1, and both texts say 购买价格为1 (read as the new price, 至简 cost 2; user playtest #5). The dispatcher runs
-// this first on onPrice (effectsMeta.js), so bonds (远见 −1, never below 1) and strategies see the lowered price.
+// this first on onPrice (effectsMeta.js), so bonds (远见 −1, never below 0) and strategies see the lowered price.
 H.SERVER_CHESS_PRICE = {
   onPrice(ctx, ev) {
     const p = ctx.source.bb.price;

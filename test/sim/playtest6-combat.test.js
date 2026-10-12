@@ -410,7 +410,7 @@ test('#14 特效 pushes (PRTS 推与拉: one frame less of travel than 弹道 on
   approx(e.x, 4 + PUSH_TILES_EFFECT[1], 1e-6, '特效 column');
 });
 
-test('#14 锏 S3 归于宁静 slashes and pulls air units too (PRTS 备注 "※可对空。不会拖拽自身中心半径0.6708范围内的敌人")', REAL, () => {
+test('#14 锏 S3 归于宁静 slashes air units too (PRTS 备注 "※可对空") but flyers are not pulled (推拉对飞行单位无效, user rule 2026-10-12)', REAL, () => {
   const id = 'chess_char_6_19_a';
   const h = makeBattle({
     defs: { enemies: { enemy_fly: foe('enemy_fly', { speed: 0, mass: 0, motion: 'FLY' }), enemy_near: foe('enemy_near', { speed: 0, mass: 0 }) } },
@@ -426,8 +426,9 @@ test('#14 锏 S3 归于宁静 slashes and pulls air units too (PRTS 备注 "※�
   h.run(4.5);
   const slashes = h.hooksOf('damaged').filter((c) => c.source === u && c.target === fly && c.dmg?.isSkill).length;
   assert.ok(slashes >= 10, `the flyer is slashed (${slashes} skill hits)`);
-  // 中力 pull vs weight 0 (受力等级 1): all the way, to the 急停 radius around her centre
-  approx(Math.hypot(fly.x - u.x, fly.y - u.y), PULL_STOP_RADIUS, 1e-6, 'pulled in to 0.6708 from her centre');
+  // 推/拉 have no effect on flying enemies: the flyer keeps its tile
+  approx(fly.x, 6, 1e-9, 'a flyer is not pulled');
+  approx(fly.y, 10, 1e-9, 'a flyer is not pulled');
   approx(near.x, 4.5, 1e-9, 'an enemy inside the 0.6708 radius is not pulled');
 });
 
@@ -603,4 +604,20 @@ test('#18 孤立 in every ally selection: 刺玫\'s 荆藤庇荫 picks the opera
   assert.equal(h.b.allySelectable(y, cm), false);
   assert.equal(h.b.allySelectable(y, y), true, 'its own effects still reach it');
   checkInvariants(h.b);
+});
+
+test('推/拉 have no effect on flying enemies (薄绿, 莫斯提马, … — user rule 2026-10-12); ground enemies still move', () => {
+  const h = makeBattle({
+    defs: { enemies: { enemy_fly: foe('enemy_fly', { speed: 0, mass: 0, motion: 'FLY' }), enemy_gnd: foe('enemy_gnd', { speed: 0, mass: 0 }) } },
+    units: [], enemies: [{ key: 'enemy_fly', pos: [10, 6] }, { key: 'enemy_gnd', pos: [11, 6] }], content: 'none', autoFinish: false, timeLimit: 30,
+  });
+  h.step();
+  const fly = h.b.enemies.find((x) => x.defId === 'enemy_fly'), gnd = h.b.enemies.find((x) => x.defId === 'enemy_gnd');
+  assert.ok(fly.isFlying && !gnd.isFlying);
+  const from = { x: 3, y: 10.5 };
+  assert.equal(h.b.push(fly, 2, { from }), 0, 'push');
+  assert.equal(h.b.push(fly, 2, { from, inward: true }), 0, '薄绿-style inward drag');
+  assert.equal(h.b.pull(fly, 3, { to: { x: 3, y: 10 } }), 0, 'pull');
+  approx(fly.x, 6, 1e-9, 'the flyer stays');
+  assert.ok(h.b.push(gnd, 2, { from }) > 0, 'a ground enemy is still pushed');
 });

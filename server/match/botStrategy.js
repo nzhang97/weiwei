@@ -1,5 +1,6 @@
 // Pure, bounded estimates for the bot's economy. Scores are heuristics, not simulated rewards:
 // never dispatch effects, take pool copies, or inspect another player's private hand/shop.
+import { BOT_POLICY } from './botPolicy.js';
 import { relayBandValue, relayCoreValue } from './botTeam.js';
 import { BOND_LAYER_CAP } from '../../shared/constants.js';
 import { computeBonds, pieceBonds } from './bondsMeta.js';
@@ -21,6 +22,30 @@ export function bandBonds(m, bandId) {
 }
 
 
+/** Opening defense first, then the core's scaling becomes the main investment. */
+export function phaseLayerWeights(m) {
+  if (!(m.botPolicy || BOT_POLICY).phaseAware) return {core:1,addon:1};
+  const configured=(m.botPolicy || BOT_POLICY).phaseLayerWeights;
+  if (configured) return configured[m.round<=4 ? 'early' : m.round<=8 ? 'middle' : 'late'];
+  if (m.round <= 4) return {core:0.7,addon:1.6};
+  if (m.round <= 8) return {core:1,addon:1.2};
+  return {core:1.6,addon:0.9};
+}
+
+/** Four-AI resource competition: only visible boards, never teammates' private hands or shops. */
+export function publicCoreCompetition(m, ps, id) {
+  const weight = (m.botPolicy || BOT_POLICY).publicCoreCompetitionWeight || 0;
+  if (!(weight > 0)) return 0;
+  const first = m.gd.bond(id)?.thresholds?.[0] || 3;
+  let pressure = 0;
+  for (const mate of m.order) {
+    if (mate === ps || mate.alive === false || mate.left || !(mate.board instanceof Map)) continue;
+    const members = new Set([...mate.board.values()].filter(p => p.kind === 'chess' && pieceBonds(m.gd,p).includes(id)).map(p => m.gd.baseIdOf(p.id)));
+    if (members.size >= 2) pressure += Math.min(1.5, members.size / first);
+  }
+  return pressure * 18 * Math.min(2, weight);
+}
+
 /** Plan a reachable core, keeping the opening strategy and committed layers together.
  * Count distinct operators, not remaining copies. Equipment membership follows the real bond rules.
  */
@@ -37,7 +62,9 @@ export function corePlan(m, ps) {
       available.get(id).add(base);
     }
   }
-  const targets = bandBonds(m, ps.bandId), previous = ps._botCore?.id;
+  // botPolicy.extraCoreTargets (band playbooks, e.g. 变形者集群 → 维多利亚): cores pursued from zero like the band's own
+  const extra = (m.botPolicy || BOT_POLICY).extraCoreTargets;
+  const targets = extra?.length ? [...bandBonds(m, ps.bandId), ...extra] : bandBonds(m, ps.bandId), previous = ps._botCore?.id;
   let best = null;
   for (const id of m.gd.bondIds) {
     const b = m.gd.bond(id);
@@ -52,9 +79,11 @@ export function corePlan(m, ps) {
     const finishLevel = count >= target ? 0 : missing[target - count - 1] || m.gd.maxShopLevel;
     const availableNow = missing.filter((tier) => tier <= ps.shop.level).length;
     const access = Math.min(Math.max(0, target - count), availableNow) * 8 - Math.max(0, firstLevel - ps.shop.level) * 12;
-    const score = Math.min(count, target) * 22 + Math.min(45, (ps.layers[id] || 0) * 0.3)
+    const score = Math.min(count, target) * 22 + Math.min((m.botPolicy || BOT_POLICY).coreLayerCap, (ps.layers[id] || 0) * (m.botPolicy || BOT_POLICY).coreLayerWeight * phaseLayerWeights(m).core)
       + (targets.includes(id) ? 80 : 0) + (id === previous && count >= first ? 16 : 0)
-      + (target === upper ? 8 : 0) + access + relayCoreValue(m, ps, id, count, first, bandBonds);
+      + (target === upper ? 8 : 0) + access + relayCoreValue(m, ps, id, count, first, bandBonds)
+      + ((m.botPolicy || BOT_POLICY).corePreference?.[id] ?? 0)
+      - (count < first ? publicCoreCompetition(m, ps, id) : 0);
     if (!best || score > best.score) best = { id, count, target, reachable, first, finishLevel, score };
   }
   ps._botCore = best;
@@ -83,7 +112,11 @@ export function coreReserveValue(m, ps, id, plan = ps._botCore) {
 export function bandScore(m, ps, id) {
   const b = m.gd.band(id);
   if (!b) return -Infinity;
-  let score = m.gd.startLp(id) * 1.3;
+  const P_ = m.botPolicy || BOT_POLICY;
+  // botPolicy.humanTeamBandLpWeight / humanTeamBandBias: with a human teammate (3 AI + 1, e.g. an idle 白板 seat) the
+  // AIs carry the team — a band that only keeps its own LP (歌利亚 45) is worth less there
+  const humanTeam = m.order.some((p) => !p.isBot) && m.order.some((p) => p.isBot);
+  let score = m.gd.startLp(id) * (humanTeam && P_.humanTeamBandLpWeight != null ? P_.humanTeamBandLpWeight : P_.bandLpWeight);
   const mates = m.order.filter((p) => p !== ps && p.alive !== false && !p.left).length;
   for (const buff of b.buffs || []) {
     const p = params(buff);
@@ -124,22 +157,45 @@ export function bandScore(m, ps, id) {
       const th = m.gd.bond(bond).thresholds || [3];
       score += 6 - (tiers.length < th[0] ? 45 : Math.max(0, tiers[th[0] - 1] - 3) * 16);
       if (tiers.length < (th[1] || th[0])) score -= 12;
+      if (tiers.length >= th[0]) score += (m.botPolicy || BOT_POLICY).coreBandBonus || 0;
     }
     // Public strategy picks indicate competition; no teammate inventory is inspected.
     if (m.order.some((p) => p !== ps && bandBonds(m, p.bandId).includes(bond))) score -= 5;
   }
-  return score + relayBandValue(m, ps, id, bandBonds(m, id), bandBonds);
+  const bias = humanTeam && P_.humanTeamBandBias?.[id] != null ? P_.humanTeamBandBias[id] : (P_.bandDefenseBias?.[m.difficulty]?.[id] || 0);
+  return score + bias + relayBandValue(m, ps, id, bandBonds(m, id), bandBonds);
 }
 
 /** Value only layers that can matter to this lineup; unactivated layers persist, but are speculative. */
 export function layerValue(m, ps, id, amount, bonds = ps.bonds) {
   if (!m.gd.bond(id) || m.gd.modeInactiveBonds.has(id)) return 0;
   const room = Math.max(0, BOND_LAYER_CAP - (ps.layers[id] || 0));
-  const n = Math.min(room, Math.max(0, amount));
+  let n = Math.min(room, Math.max(0, amount));
+  if ((m.botPolicy || BOT_POLICY).layerMilestones) n = usefulLayerAmount(m, ps, id, n);
   const state = bonds[id];
   const weight = state?.active ? 1 : state?.count > 0 ? 0.25 : 0;
-  const priority = m.gd.bond(id).isCore ? (ps._botCore?.id === id ? 1.3 : 1) : 0.8;
-  return n * weight * priority * (0.35 + Math.min(8, future(m)) * 0.035);
+  const priority = m.gd.bond(id).isCore ? (ps._botCore?.id === id ? 1.3 : 1) * (m.botPolicy || BOT_POLICY).coreLayerValueMul : 0.8;
+  return n * weight * priority * (m.gd.bond(id).isCore ? phaseLayerWeights(m).core : phaseLayerWeights(m).addon) * (0.35 + Math.min(8, future(m)) * 0.035);
+}
+
+/** Probability layers stop helping at 100%; threshold credit is bounded and never invents grants. */
+export function usefulLayerAmount(m, ps, id, amount) {
+  const L = ps.layers[id] || 0;
+  const rec = m.gd.bond(id);
+  if (!rec || rec.noStack || !(amount > 0)) return 0;
+  const b = rec.buffs?.find(x => x.key === 'env_gbuff_new')?.bb || {};
+  let n = amount;
+  if (id === 'swiftShip' || id === 'indomShip') {
+    const cap = b.prob_per_stack > 0 ? (1 - (b.base_prob || 0)) / b.prob_per_stack : Infinity;
+    n = Math.min(n, Math.max(0, cap - L));
+  }
+  // Range expansion / all-unit SP / all-unit ASPD are discrete, real milestones.
+  if (['skillfulShip','swiftShip','raidShip'].includes(id) && b.power_bond_stack_cnt > L && L + n >= b.power_bond_stack_cnt) n *= 1.5;
+  if (id === 'visiShip' && future(m)) {
+    const bb = rec.buffs.find(x => x.key === 'bond_multi_layer_char_goods_price_bond_discount')?.bb || {};
+    if ([bb.layer1,bb.layer2].some(t => t > L && L + n >= t)) n *= 1.5;
+  }
+  return n;
 }
 
 export function garrisons(m, id) {
@@ -157,6 +213,21 @@ export function lineupState(m, ps, set) {
   }
   const board = new Map(set.map((p, i) => [`x${i}`, p]));
   return { board, hand, bonds: computeBonds(m.gd, { board, hand, layers: ps.layers, bondCountBonus: ps.bondCountBonus }) };
+}
+
+/** Bounded potential for one owned teammate, not a free grant or an assumed full-board aura.
+ * The layout planner and real rehearsal still determine whether the neighbour is actually reached.
+ */
+export function positionalEngineValue(m, ps, piece, count, {board=ps.board,bonds=ps.bonds,bench=false}={}) {
+  const policy=m.botPolicy || BOT_POLICY;
+  if (bench || !(policy.positionEngineWeight>0) || m.round < (policy.positionEngineMinRound || 1)) return 0;
+  const targets=[...board.values()].filter(p=>p.kind==='chess' && p.uid!==piece.uid);
+  let best=0;
+  for(const p of targets) {
+    const value=pieceBonds(m.gd,p).filter(id=>bonds[id]?.active && (!policy.positionEngineCoreOnly || m.gd.bond(id)?.isCore)).reduce((n,id)=>n+layerValue(m,ps,id,count,bonds),0);
+    best=Math.max(best,value);
+  }
+  return best*Math.min(0.75,policy.positionTargetCredit || 0.5)*policy.positionEngineWeight;
 }
 
 /** Estimate supported trait families from the same blackboards/activation rules as their handlers.
@@ -196,7 +267,7 @@ export function traitValue(m, ps, piece, events, { board = ps.board, hand = ps.h
           add(id, amount * (b.multi || 1));
         }
         break;
-      case 'SERVER_ADD_BOND_POSITION': if (!bench) members.forEach((id) => add(id, b.count)); break;
+      case 'SERVER_ADD_BOND_POSITION': if (!bench) { members.forEach((id) => add(id, b.count)); value += positionalEngineValue(m,ps,piece,b.count,{board,bonds,bench}); } break;
       case 'SERVER_ADD_BOND_IN_HAND':
         for (const p of hand) if (p?.kind === 'chess') for (const id of pieceBonds(m.gd, p)) add(id, b.count);
         break;
@@ -204,7 +275,11 @@ export function traitValue(m, ps, piece, events, { board = ps.board, hand = ps.h
       case 'SERVER_ADD_REFRESH_CNT_MULTIPLIER_BOND_LAYER':
         ids.forEach((id) => add(id, Math.min(b.max_layer || Infinity, refreshes * b.multiplier))); break;
       case 'SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT':
-        if (refreshes === (b.refresh_cnt || 1)) ids.forEach((id) => add(id, b.layer)); break;
+        // per copy (garrisons/meta.js): a copy fires on its own first refresh of the round — counted unless that copy
+        // already did this round (a shop probe or a copy bought after the round's first refresh still fires)
+        if (!(Number.isInteger(piece.uid) && ps.counters?.[`refreshLayer:${g.garrisonId}:${piece.uid}:round`] === m.round
+          && (ps.counters[`refreshLayer:${g.garrisonId}:${piece.uid}:count`] || 0) >= (b.refresh_cnt || 1))) ids.forEach((id) => add(id, b.layer));
+        break;
       case 'SERVER_GAIN_FREE_REFRESH_COUNT': value += (b.count || 1) * 2; break;
       case 'SERVER_ONCE_GOLD_WITH_BOND_CONDITION':
         if (bench && !ids.some((id) => bonds[id]?.active)) break;
@@ -242,7 +317,7 @@ export function battleLayerValue(m, ps, piece, { bonds = ps.bonds, bench = false
     if (g.effectKey === 'act1autochess_gar_event_selfkillenemy' && !healer(c) && c?.attackKind !== 'none') events = Math.min(3, enemies / 12) / Math.max(1, b.check_cnt || 1);
     const amount = Math.min(b.max_add_count_per_battle ?? Infinity, events * (b.bond_add_count || 0));
     const ids = s.bond_type === 'bond_self' ? pieceBonds(m.gd, piece) : list(s.bond_id);
-    for (const id of ids) if (bonds[id]?.active && (m.gd.bond(id)?.isCore || id === 'visiShip' || id === 'miraShip')) value += layerValue(m, ps, id, amount, bonds);
+    for (const id of ids) if (bonds[id]?.active && (m.gd.bond(id)?.isCore || id === 'visiShip' || id === 'miraShip' || ((m.botPolicy || BOT_POLICY).battleAddonLayers && !m.gd.bond(id)?.noStack))) value += layerValue(m, ps, id, amount, bonds);
   }
   return Math.min(8, value);
 }
@@ -257,6 +332,12 @@ export function recurringValue(m, ps, p, state = {}) {
  * when its damage dealers are deployed; an economy bond in the hand needs no extra board slots.
  * Uptime, survival and target counts are deliberately conservative estimates; rehearsal decides close cases.
  */
+/** Expected engaged battle length in game seconds for the current round (2× field clock; waves grow longer). */
+export function battleWindow(m) {
+  const r = m.round || 1;
+  return r <= 3 ? 55 : r <= 6 ? 75 : r <= 9 ? 120 : 150;
+}
+
 export function combatBondValue(m, set, bonds, ps = null) {
   const units = set.map((p) => ({ p, c: m.gd.chess(p.id), ids: pieceBonds(m.gd, p) })).filter((u) => u.c);
   const strength = (u) => (8 + u.c.tier * 2) * (u.c.isGolden ? 1.9 : 1);
@@ -265,6 +346,7 @@ export function combatBondValue(m, set, bonds, ps = null) {
   let v = 0;
   for (const [id, state] of Object.entries(bonds)) {
     if (!state.active) continue;
+    const before = v;
     const rec = m.gd.bond(id), b = rec.buffs?.find((x) => x.bbStr?.key)?.bb || {};
     const members = units.filter((u) => u.ids.includes(id) || (rec.isCore && bonds.maniShip?.active && u.ids.includes('maniShip')));
     const own = sum(members), L = state.layers || 0;
@@ -284,15 +366,20 @@ export function combatBondValue(m, set, bonds, ps = null) {
       }
       case 'lateranoShip': v += own * Math.min(0.7, (b.base_ammo_percent + b.ammo_percent_per_stack * L) * 0.3) + (upper ? own * 0.8 : 0); break;
       case 'egirShip': v += own * (b.base_max_hp + b.max_hp_per_stack * L) * 0.25 + (upper ? 16 : 4); break;
-      case 'siracusaShip': v += own * (b.base_attack_speed + b.attack_speed_per_stack * L) / 100 * Math.min(1, (b.base_duration + b.duration_per_stack * L) / 65) * 0.8 + (upper ? own * 0.5 : 0); break;
+      case 'siracusaShip': {
+        // The ASPD buff starts at each deployment and lasts (base + per·L) game s; later waves fight much longer,
+        // so a fixed 65 s window overrates it there (policy flag: battleWindowByRound).
+        const win = (m.botPolicy || BOT_POLICY).battleWindowByRound ? battleWindow(m) : 65;
+        v += own * (b.base_attack_speed + b.attack_speed_per_stack * L) / 100 * Math.min(1, (b.base_duration + b.duration_per_stack * L) / win) * 0.8 + (upper ? own * 0.5 : 0); break;
+      }
       case 'kazimierzShip': v += own * Math.min(units.length * b.atk_when_born, b.base_max_atk_when_born + b.max_atk_when_born_per_stack * L) * 0.7 + (upper ? own * 0.6 : 0); break;
       case 'preciShip': {
         const affected = upper ? units.filter((u) => u.ids.includes(id) || positionClass(u.c) === 'ranged') : members;
         v += sum(affected) * (b.base_atk + b.atk_per_stack * L + (upper ? 0.2 : 0)) * 0.7; break;
       }
       case 'swiftShip': v += own * (Math.min(1, b.base_prob + b.prob_per_stack * L) * 0.2 + (L >= b.power_bond_stack_cnt ? 0.35 : 0)); break;
-      case 'skillfulShip': v += Math.min(all, own * 2) * (b.base_attack_speed + b.attack_speed_per_stack * L) / 100 * 0.6; break;
-      case 'arcaneShip': v += sum(units.filter((u) => u.c.dmgType === 'arts')) * (b.base_damage_scale - 1 + b.damage_scale_per_stack * L) * (upper ? 1.2 : 0.85); break;
+      case 'skillfulShip': v += ((ps && (m.botPolicy || BOT_POLICY).supportBondWeight?.skillfulShip) || 1) * Math.min(sum(units.filter(u=>u.c.attackKind!=='none')), own * 2) * (b.base_attack_speed + b.attack_speed_per_stack * L) / 100 * 0.6; break;
+      case 'arcaneShip': v += ((ps && (m.botPolicy || BOT_POLICY).supportBondWeight?.arcaneShip) || 1) * (members.some(u=>u.c.dmgType==='arts'&&u.c.attackKind!=='none') ? sum(units.filter((u) => u.c.dmgType === 'arts')) : 0) * (b.base_damage_scale - 1 + b.damage_scale_per_stack * L) * (upper ? 1.2 : 0.85); break;
       case 'steadShip': v += ground * (b.base_max_hp + b.max_hp_per_stack * L) * 0.2 + (upper ? 20 + Math.min(20, L * 0.15) : 0); break;
       case 'deputShip': v += ground * (b.base_def + b.def_per_stack * L) * 0.25 + Object.values(bonds).filter((s) => s.active).length * (state.tier >= 2 ? 4 : 2); break;
       case 'raidShip': v += own * (b.base_atk + b.atk_per_stack * L) * 0.8 + (L >= b.power_bond_stack_cnt ? all * b.power_attack_speed / 100 * 0.6 : 0); break;
@@ -302,6 +389,8 @@ export function combatBondValue(m, set, bonds, ps = null) {
       case 'suntShip': v += sum(units.filter((u) => u.c.isGolden)) * (b.power_atk * 0.7 + (state.count >= b.ex_char_cnt ? 0.2 : 0)); break;
       default: break;
     }
+    const importance = (m.botPolicy || BOT_POLICY).combatBondWeights?.[id];
+    if (importance !== undefined) v = before + (v - before) * Math.max(0, Math.min(4, importance));
   }
   return v;
 }
@@ -350,7 +439,7 @@ export function combatRecord(m, ps, piece, bonds = ps.bonds, rosterSize = ps.dep
     if (b.key !== 'attr_common_global_buff') continue;
     atk += b.atk || 0; hp += b.max_hp || 0; def += b.def || 0; speed += b.attack_speed || 0;
   }
-  return { ...c, botDamageScale: scale, stats: { ...st, atk: (st.atk || 0) * atkMul * (1 + atk),
+  return { ...c, botBonds: ids, botDamageScale: scale, stats: { ...st, atk: (st.atk || 0) * atkMul * (1 + atk),
     maxHp: (st.maxHp || 1) * hpMul * (1 + hp), def: (st.def || 0) * (1 + def), aspd: (st.aspd || 100) + speed } };
 }
 
@@ -385,10 +474,20 @@ export function economyBondValue(m, ps, id, bonds = ps.bonds) {
 /** Marginal value of completing economy support in the hand; a duplicate never supplies a new member. */
 export function economyRecruitValue(m, ps, id) {
   const probe = { uid: -2, id, kind: 'chess', items: [] };
-  const ids = pieceBonds(m.gd, probe).filter(id => id === 'visiShip' || id === 'miraShip');
-  if (!ids.length || !ps.hand.some(p => !p)) return 0;
+  const own = pieceBonds(m.gd, probe);
+  const ids = own.filter(id => id === 'visiShip' || id === 'miraShip');
+  // botPolicy.investActivationValue: a recruit that activates 投资人 ("获得时" traits trigger twice; board + bench count)
+  const inv = (m.botPolicy || BOT_POLICY).investActivationValue || 0;
+  const wantInvest = inv > 0 && own.includes('investShip') && future(m) > 0;
+  if ((!ids.length && !wantInvest) || !ps.hand.some(p => !p)) return 0;
   const bonds = computeBonds(m.gd, { board: ps.board, hand: ps.hand.concat(probe), layers: ps.layers, bondCountBonus: ps.bondCountBonus });
-  return ids.reduce((n, id) => n + Math.max(0, economyBondValue(m, ps, id, bonds) - economyBondValue(m, ps, id)), 0);
+  let v = ids.reduce((n, id) => n + Math.max(0, economyBondValue(m, ps, id, bonds) - economyBondValue(m, ps, id)), 0);
+  if (wantInvest) {
+    const was = ps.bonds.investShip || {}, now = bonds.investShip || {};
+    if (now.active && !was.active) v += inv;
+    else if (!now.active && (now.count || 0) > (was.count || 0)) v += inv * 0.3;
+  }
+  return v;
 }
 
 /** Selling a bench engine or the last member of an active deck-counted bond is a real loss. */
@@ -440,6 +539,16 @@ export function equipmentScore(m, ps, itemId, piece) {
     return future(m) > 0 ? Math.max(0, 18 - c.tier * 3 - bonds.reduce((n, id) => n + (ps.bonds[id]?.active ? 2 : 0), 0)) : -Infinity;
   }
   if (rec.canGiveBond) {
+    // botPolicy.morphPairing: 变形同构体 waits for its partner — with a partner (giveBondId item) in hand/temp it goes on
+    // an empty-handed chess that lacks the partner's bond (the partner follows through the reciprocal +12 below)
+    if (m.botPolicy.morphPairing && !(piece.items || []).length) {
+      let bestGrant = 0;
+      for (const h of [...ps.hand, ...ps.temp]) {
+        const gid = h && h.kind === 'item' ? m.gd.item(h.id)?.giveBondId : null;
+        if (gid && !bonds.includes(gid) && !m.gd.modeInactiveBonds.has(gid)) bestGrant = Math.max(bestGrant, morphGrantValue(m, ps, gid) + output * 4);
+      }
+      if (bestGrant > 0) return bestGrant;
+    }
     for (const it of piece.items || []) {
       const id = m.gd.item(it.id)?.giveBondId;
       if (id && !bonds.includes(id) && !m.gd.modeInactiveBonds.has(id)) score += 8 + Math.min(12, (ps.layers[id] || 0) * 0.1);
@@ -451,7 +560,10 @@ export function equipmentScore(m, ps, itemId, piece) {
     if (attacking) score += (8 + c.tier * 2) * (b.base_damage_scale - 1 + b.damage_scale_per_stack * (ps.layers.victoriaShip || 0)) * 0.7;
   }
   if (rec.requiresBondId && hasBond(rec.requiresBondId)) score += 14;
-  if (rec.giveBondId && !bonds.includes(rec.giveBondId) && (piece.items || []).some((it) => m.gd.item(it.id)?.canGiveBond) && !m.gd.modeInactiveBonds.has(rec.giveBondId)) score += 12;
+  if (rec.giveBondId && !bonds.includes(rec.giveBondId) && (piece.items || []).some((it) => m.gd.item(it.id)?.canGiveBond) && !m.gd.modeInactiveBonds.has(rec.giveBondId)) score += m.botPolicy.morphPairing ? 12 + morphGrantValue(m, ps, rec.giveBondId) : 12;
+  // morphPairing: a partner is worth buying while an unpaired 变形同构体 waits in hand (it then pairs on this chess)
+  else if (m.botPolicy.morphPairing && rec.giveBondId && !bonds.includes(rec.giveBondId) && !(piece.items || []).length && !m.gd.modeInactiveBonds.has(rec.giveBondId)
+    && [...ps.hand, ...ps.temp].some((h) => h && h.kind === 'item' && m.gd.item(h.id)?.canGiveBond)) score += morphGrantValue(m, ps, rec.giveBondId) * 0.8;
   if (rec.kind === 'passive_player') score += bonds.filter((id) => ps.bonds[id]?.active).length * 3;
   for (const buff of rec.buffs || []) {
     const p = params(buff), k = p.key || buff.key;
@@ -486,6 +598,20 @@ export function equipmentScore(m, ps, itemId, piece) {
     if ((other.buffs || []).some((b) => list(b.bbStr?.equip_chess_id || b.bbStr?.other_equip).some((id) => itemKey(id) === itemKey(itemId)))) score += 12;
   }
   return score;
+}
+
+/** Value of one extra member for `bondId` (变形同构体 pairing): next threshold reached, layers already banked, core bonds. */
+export function morphGrantValue(m, ps, bondId) {
+  const b = m.gd.bond(bondId);
+  if (!b) return 0;
+  const cur = ps.bonds[bondId]?.count || 0;
+  const th = b.thresholds || [3];
+  let v = 6 + Math.min(12, (ps.layers?.[bondId] || 0) * 0.1);
+  if (th.some((n) => cur < n && cur + 1 >= n)) v += 18;
+  else if (th.some((n) => cur + 2 >= n && cur < n)) v += 6;
+  if (ps.bonds[bondId]?.active) v += 6;
+  if (b.isCore) v += 4;
+  return v;
 }
 
 /** Greedy marginal allocation, including worthwhile replacement instead of destroying a random old item. */
