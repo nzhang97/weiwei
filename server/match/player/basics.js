@@ -62,10 +62,11 @@ export class PlayerBasics {
    * changes) when either does not fit the data; bots keep the defaults.
    * @param {any} loadout
    * @param {any} [ops]
+   * @param {{ bot?: boolean }} [opt] bot: an AI seat's policy loadout (Match.botPolicy.botLoadout, PlayerState constructor)
    * @returns {boolean}
    */
-  setLoadout(loadout, ops = undefined) {
-    if (this.isBot) return false;
+  setLoadout(loadout, ops = undefined, { bot = false } = {}) {
+    if (this.isBot && !bot) return false;
     let opsRes = null;
     if (ops !== undefined) {
       const raw = {};

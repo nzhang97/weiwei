@@ -80,6 +80,8 @@ export function makeMatch(o = {}) {
     verify: o.verify ?? 'off',
     headlessSliceMs: o.headlessSliceMs,
     aiPicksLast: o.aiPicksLast,
+    // AI policy overrides (server/match/botPolicy.js; Match merges them over the defaults)
+    botPolicy: o.botPolicy,
   });
   const m = h.m;
   if (m.clientCombat && o.clients !== false) {

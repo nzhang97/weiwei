@@ -181,6 +181,7 @@ import { GameData } from './gamedata.js';
 import { RealScheduler } from './scheduler.js';
 import { SharedPool, SharedItemPool, drawDisabledBonds } from './pool.js';
 import { PlayerState } from './PlayerState.js';
+import { BOT_POLICY } from './botPolicy.js';
 import { EffectDispatcher, getDefaultRegistry } from './effectsMeta.js';
 import { setupMatchWaves } from './waves.js';
 import { GAME_SPEED, HEADLESS_SLICE_MS } from './fields.js';
@@ -252,6 +253,10 @@ export class Match {
     this.aiPicksLast = !this.isSolo && opts.aiPicksLast === true;
     // optional room rule 抽卡优化 (server/match/drawOptimization.js)
     this.drawOptimization = opts.drawOptimization !== false;
+    // AI policy (server/match/botPolicy.js; read by bot.js / botStrategy.js / botTeam.js / botBoss.js): the defaults, then
+    // in co-op the difficulty's tuned overrides (byDifficulty — of opts.botPolicy when it brings its own table), then
+    // opts.botPolicy itself (experiments / tools/airun.mjs). Decisions only — no rule or stat changes.
+    this.botPolicy = { ...BOT_POLICY, ...(!this.isSolo ? (opts.botPolicy || BOT_POLICY).byDifficulty?.[this.difficulty] : {}), ...(opts.botPolicy || {}) };
     this.ownsScheduler = !opts.scheduler;
     this.sched = opts.scheduler || new RealScheduler({ now: opts.now || Date.now, onError: (e) => this.reportError('timer', e) });
     this.registry = opts.registry || getDefaultRegistry();
