@@ -313,3 +313,11 @@
 .ready-count__icons .icon.is-on { color: var(--mint-400); filter: drop-shadow(0 0 4px var(--mint-glow)); }
 
 .room-bar .btn--xl { min-width: 3.2rem; letter-spacing: .2em; }
+
+/* Optional room rules (screens/room.js RoomRules): AI / human operator boosts, AI R3–4 nerf, free pick, draw optimization */
+.room-ai-buff { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: .12rem .25rem; padding: .14rem .6rem; border-top: 1px solid var(--line); background: rgba(7, 9, 8, .8); }
+.room-ai-buff__toggle { display: flex; align-items: center; gap: .1rem; font-size: calc(.17 * var(--t)); color: var(--text-hi); cursor: pointer; }
+.room-ai-buff__toggle input { width: .2rem; height: .2rem; accent-color: var(--mint-600); }
+.room-ai-buff__toggle b { font-size: calc(.14 * var(--t)); color: var(--mint-600); }
+.room-ai-buff__desc { font-size: calc(.14 * var(--t)); color: var(--text-lo); line-height: 1.5; }
+@media (max-width: 800px) { .room-ai-buff { padding: .1rem .2rem; } }

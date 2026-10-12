@@ -137,6 +137,11 @@ export class PlayerRound {
       side,
       colOffset,
       units,
+      // optional room rules (battle/players.js → Unit final multiplier): AI ×2, AI ×0.2 in rounds 3–4, human
+      // +150 % in round 1 falling 10 points a round to +10 % from round 15
+      aiOperatorBuff: this.isBot && this.m.aiOperatorBuff === true,
+      aiRound34Nerf: this.isBot && this.m.aiRound34Nerf === true && (this.m.round === 3 || this.m.round === 4),
+      humanOperatorBuffMul: !this.isBot && this.m.humanOperatorBuff === true ? 1 + Math.max(10, 160 - 10 * Math.max(1, this.m.round)) / 100 : 1,
       bonds: bondSnapshot(reached ? this.bondsView() : this.bonds),
       bandId: this.bandId,
       playerEffects: this.effects.filter((e) => e.battle !== false).map((e) => ({

@@ -389,6 +389,12 @@ export const C2S = {
   // the co-op room option 「AI 队友最后选择」 (GitHub #338; host, before the match): the strategy and 机变 drafts order every
   // human seat before every AI seat (server/match/match/phases.js humansFirst); room.state.aiPicksLast
   'room.setAiPicksLast': { on: isBool },
+  // optional room rules (host, before the match): AI / human operator boosts, AI R3–4 nerf, free operator pick, draw optimization
+  'room.setAiOperatorBuff': { enabled: isBool },
+  'room.setAiRound34Nerf': { enabled: isBool },
+  'room.setHumanOperatorBuff': { enabled: isBool },
+  'room.setFreeOperatorPick': { enabled: isBool },
+  'room.setDrawOptimization': { enabled: isBool },
   'room.addBot': {},
   'room.removeBot': { seat: (v) => isInt(v, 0, MAX_SEATS - 1) },
   // the host removes another human before the match (server/lobby.js kick; community report #17); playerId = the one the
@@ -421,6 +427,7 @@ export const C2S = {
   // free (Match.timeoutBand); absent / null clears it
   'g.bandFocus': { bandId: nullable(isId), $optional: ['bandId'] },
   'g.buy': { slot: (v) => isInt(v, 0, 15) },
+  'g.freeOperatorPick': { chessId: isId },
   'g.refresh': {},
   'g.freeze': {},
   'g.levelUp': {},

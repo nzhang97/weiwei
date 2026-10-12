@@ -32,6 +32,12 @@ export class Unit {
     }
     this.id = init.id;
     this.side = init.side;            // 'ally' | 'enemy'
+    // optional room rules: applied after every flat / percentage / multiplier buff, operators only
+    this.aiOperatorBuff = init.aiOperatorBuff === true && init.side === 'ally' && init.kind === 'op';
+    this.aiRound34Nerf = init.aiRound34Nerf === true && init.side === 'ally' && init.kind === 'op';
+    this.humanOperatorBuffMul = init.side === 'ally' && init.kind === 'op'
+      && Number.isFinite(init.humanOperatorBuffMul) && init.humanOperatorBuffMul >= 1.1 && init.humanOperatorBuffMul <= 2.5
+      ? init.humanOperatorBuffMul : 1;
     this.kind = init.kind;            // 'op' | 'token' | 'enemy' | 'device'
     this.def = init.def;              // normalised def (chess / token / enemy / device)
     this.defId = init.defId ?? init.def?.id ?? 'unknown';
@@ -137,11 +143,12 @@ export class Unit {
     const b = this.base;
     const cm = this.cultMul || NO_MUL;
     const bHp = fin(b.maxHp, 1) > 0 ? fin(b.maxHp, 1) : 1;
-    const maxHp = Math.max(1, fin((bHp + a('hpFlat')) * Math.max(0, 1 + a('hpPct')) * m('hpMul') * cm.hp, bHp));
+    const finalMul = (this.aiOperatorBuff ? 2 : 1) * (this.humanOperatorBuffMul || 1) * (this.aiRound34Nerf ? 0.2 : 1);
+    const maxHp = Math.max(1, fin((bHp + a('hpFlat')) * Math.max(0, 1 + a('hpPct')) * m('hpMul') * cm.hp, bHp)) * finalMul;
     // PRTS 游戏数据基础 属性基本公式 A_f = F_t[(A + D_p)(1 + D_t) + F_p]: `atkFinal` is the 最终加算 (FINAL_ADDITION) —
     // added after the percentages, inside the Πmul (阿戈尔's devoured base ATK, DESIGN §24.7)
-    const atk = Math.max(0, fin(((b.atk + a('atkFlat')) * Math.max(0, 1 + a('atkPct')) + a('atkFinal')) * m('atkMul') * cm.atk, fin(b.atk, 0)));
-    const def = Math.max(0, fin((b.def + a('defFlat')) * Math.max(0, 1 + a('defPct')) * m('defMul') * cm.def, fin(b.def, 0)));
+    const atk = Math.max(0, fin(((b.atk + a('atkFlat')) * Math.max(0, 1 + a('atkPct')) + a('atkFinal')) * m('atkMul') * cm.atk, fin(b.atk, 0))) * finalMul;
+    const def = Math.max(0, fin((b.def + a('defFlat')) * Math.max(0, 1 + a('defPct')) * m('defMul') * cm.def, fin(b.def, 0))) * finalMul;
     const res = clamp(fin((b.res + a('resFlat')) * m('resMul'), fin(b.res, 0)), 0, 100);
     const aspd = clamp(fin(b.aspd + a('aspd'), 100), ASPD_MIN, ASPD_MAX);
     const bBat = fin(b.bat, 1) > 0 ? fin(b.bat, 1) : 1;

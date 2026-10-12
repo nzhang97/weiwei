@@ -214,7 +214,7 @@ export class MatchSpDraft {
    * bonds (the player's data view: a slotted slot's operator) — 0.2.0 WE2.
    * @returns {{ kind: 'item'|'chess', id: string, golden?: boolean } | null}
    */
-  rollPool(poolId, { shopLevel = 6, extra = null, chessOf = null } = {}) {
+  rollPool(poolId, { shopLevel = 6, extra = null, chessOf = null, weight = undefined } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};
     const p = typeof poolId === 'string' && Object.hasOwn(pools, poolId) ? pools[poolId] : null;
     if (!p || typeof p !== 'object') return null;
@@ -232,11 +232,11 @@ export class MatchSpDraft {
     };
     let id = null;
     if (Array.isArray(p.weighted) && p.weighted.length) {
-      const pairs = p.weighted.filter((x) => Array.isArray(x) && free(x[0]));
+      const pairs = p.weighted.filter((x) => Array.isArray(x) && free(x[0])).map(([cid, w]) => [cid, w * (weight ? weight(cid) : 1)]);
       id = pairs.length ? weightedPick(rng, pairs) : null;
     } else if (Array.isArray(p.items) && p.items.length) {
       const list = p.items.filter(free);
-      id = list.length ? list[Math.floor(rng() * list.length)] : null;
+      id = list.length ? (weight ? weightedPick(rng, list.map((cid) => [cid, weight(cid)])) : list[Math.floor(rng() * list.length)]) : null;
     } else {
       const maxTier = p.maxTier === 'shopLevel' ? lvl : Number.isInteger(p.maxTier) ? p.maxTier : 6;
       const minTier = Number.isInteger(p.minTier) ? p.minTier : 1;
@@ -247,6 +247,7 @@ export class MatchSpDraft {
         maxTier,
         filter: (cid, e) => e.tier >= minTier && (!bond || (Array.isArray(recOf(cid)?.bonds) && recOf(cid).bonds.includes(bond))),
         extra,
+        weight,   // 抽卡优化 (room option), shared-pool draws only
       });
     }
     if (!id) return null;

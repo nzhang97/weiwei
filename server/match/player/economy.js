@@ -7,6 +7,7 @@
 import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
+import { chessDrawWeight } from '../drawOptimization.js';
 
 export class PlayerEconomy {
   addFunds(n, { reason = '' } = {}) {
@@ -64,9 +65,32 @@ export class PlayerEconomy {
     return Number.isFinite(p) ? Math.max(0, Math.round(p)) : slot.basePrice;
   }
 
+  /** 抽卡优化 (room option): draw multiplier by this player's bond-layer rank, undefined when off. */
+  chessDrawWeight() { return chessDrawWeight(this.gd, this.layers, this.m.drawOptimization); }
+
+  /** 每回合免费自选干员 (room option): normal operators of tier ≤ the 调度中心 level with a copy left in the pool. */
+  freeOperatorPickOptions() {
+    if (!this.m.freeOperatorPick || this.isBot) return [];
+    return this.gd.visibleChess.filter((id) => this.gd.tierOf(id) <= this.shop.level && this.m.pool.has(id) && this.m.pool.left(id) > 0);
+  }
+
+  freeOperatorPick(chessId) {
+    const g = this._gate(); if (g) return g;
+    if (!this.m.freeOperatorPick || this.isBot) return fail(ERR.BAD_TARGET, 'free operator pick is off');
+    if (this.round.freeOperatorPickUsed) return fail(ERR.BAD_TARGET, 'free operator pick already used this round');
+    if (!this.freeOperatorPickOptions().includes(chessId)) return fail(ERR.BAD_TARGET, 'operator not available for the free pick');
+    if (freeSlot(this.hand) < 0 && !this.completesChessMerge(chessId)) return fail(ERR.HAND_FULL);
+    // consumed before the onGain hooks: a duplicate / re-entrant request is harmless
+    this.round.freeOperatorPickUsed = true;
+    const piece = this.acquireChess(chessId, { source: 'freeOperatorPick' });
+    if (!piece) { this.round.freeOperatorPickUsed = false; return fail(ERR.HAND_FULL); }
+    this.recompute();
+    return OK;
+  }
+
   _rollChessSlot() {
     // the slotted 自选 pieces join the draw once the 调度中心 reaches their slot's level (player/diy.js diyRollEntries)
-    const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, extra: this.diyRollEntries() });
+    const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, extra: this.diyRollEntries(), weight: this.chessDrawWeight() });
     return id ? { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false } : null;
   }
 

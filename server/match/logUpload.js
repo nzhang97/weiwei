@@ -62,7 +62,7 @@ async function gh(cfg, method, url, body, fetchImpl, timeoutMs) {
 
 /** Create cfg.branch as an orphan branch holding a README (the logs never mix with the code history). */
 async function createBranch(cfg, fetchImpl, timeoutMs) {
-  const readme = '# AI training logs\n\nMatches submitted with 提交给AI学习 from any device (see server/match/logUpload.js).\n';
+  const readme = '# AI training logs\n\nMatches submitted for AI training from any device (see server/match/logUpload.js).\n';
   const tree = await gh(cfg, 'POST', `/repos/${cfg.repo}/git/trees`,
     { tree: [{ path: 'README.md', mode: '100644', type: 'blob', content: readme }] }, fetchImpl, timeoutMs);
   if (tree.status !== 201) return false;
@@ -97,13 +97,13 @@ export async function uploadLog(cfg, id, text, { fetchImpl = globalThis.fetch, t
       if ((r.status === 404 || r.status === 422) && /branch/i.test(msg) && attempt === 0) {
         if (await createBranch(cfg, fetchImpl, timeoutMs)) continue;
       }
-      if (r.status === 401) return { ok: false, error: 'GitHub 令牌无效或已过期 (401)' };
-      if (r.status === 403 || r.status === 404) return { ok: false, error: `令牌没有该仓库的写权限 (${r.status})` };
+      if (r.status === 401) return { ok: false, error: 'GitHub token invalid or expired (401)' };
+      if (r.status === 403 || r.status === 404) return { ok: false, error: `token has no write access to the repo (${r.status})` };
       return { ok: false, error: `GitHub ${r.status}${msg ? `: ${msg}` : ''}` };
     }
     return { ok: false, error: 'could not create branch' };
   } catch (e) {
-    return { ok: false, error: e && e.name === 'AbortError' ? '上传超时' : String(e && e.message || e) };
+    return { ok: false, error: e && e.name === 'AbortError' ? 'upload timed out' : String(e && e.message || e) };
   }
 }
 
@@ -160,7 +160,7 @@ export function createUploader({ trainingDir, env = process.env, fetchImpl = glo
     branch: cfg ? cfg.branch : null,
     device: cfg ? cfg.device : null,
     async submit(id, text) {
-      if (!cfg) return { ok: false, configured: false, error: '本机未配置上传 (AI_LOG_GITHUB_TOKEN)' };
+      if (!cfg) return { ok: false, configured: false, error: 'upload not configured on this machine (AI_LOG_GITHUB_TOKEN)' };
       const r = await uploadLog(cfg, id, text, opts);
       if (r.ok) {
         dequeue(id);

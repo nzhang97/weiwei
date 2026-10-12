@@ -250,6 +250,12 @@ export class Match {
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
     this.aiPicksLast = !this.isSolo && opts.aiPicksLast === true;
+    // optional room rules: AI operator boost ×2 / AI R3–4 ×0.2 (co-op), human operator boost, free operator pick, draw optimization
+    this.aiOperatorBuff = !this.isSolo && opts.aiOperatorBuff === true;
+    this.aiRound34Nerf = !this.isSolo && opts.aiRound34Nerf === true;
+    this.humanOperatorBuff = opts.humanOperatorBuff === true;
+    this.freeOperatorPick = opts.freeOperatorPick === true;
+    this.drawOptimization = opts.drawOptimization !== false;
     this.ownsScheduler = !opts.scheduler;
     this.sched = opts.scheduler || new RealScheduler({ now: opts.now || Date.now, onError: (e) => this.reportError('timer', e) });
     this.registry = opts.registry || getDefaultRegistry();

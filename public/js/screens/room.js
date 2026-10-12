@@ -25,7 +25,7 @@ import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
 import { difficultyInfo } from './lobby.js';
-import { t, tc } from '../../../shared/i18n.js';
+import { t, tc, N_ } from '../../../shared/i18n.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4, solo 1), each null or a seat record.
@@ -219,6 +219,34 @@ function AiLastToggle({ option, busy, onToggle }) {
   </div>`;
 }
 
+/**
+ * Optional room rules (host-only before the match; everyone sees them): AI 队友强化 / AI 第3、4回合弱化 (co-op), 真人玩家强化,
+ * 每回合免费自选干员, 抽卡优化 — room.set* messages, room.state fields of the same names (server/lobby.js setRoomRule).
+ */
+const ROOM_RULES = [
+  { key: 'aiOperatorBuff', msg: 'room.setAiOperatorBuff', coop: true, name: N_('AI 队友强化'),
+    desc: N_('AI 队友干员的最终攻击、防御、生命上限 +100%，在技能、盟约、装备等加成后再翻倍。') },
+  { key: 'aiRound34Nerf', msg: 'room.setAiRound34Nerf', coop: true, name: N_('AI 第3、4回合弱化'),
+    desc: N_('仅第 3、4 回合：AI 队友干员的攻击、防御、生命上限在所有其他加成后降至 20%，真人不变。') },
+  { key: 'humanOperatorBuff', msg: 'room.setHumanOperatorBuff', name: N_('真人玩家强化'),
+    desc: N_('真人干员的最终攻击、防御、生命上限：第 1 回合 +150%，每回合减少 10 个百分点，第 15 回合起保持 +10%。在技能、盟约、装备等加成后生效。') },
+  { key: 'freeOperatorPick', msg: 'room.setFreeOperatorPick', name: N_('每回合免费自选干员'),
+    desc: N_('每名真人玩家每回合可免费自选 1 名等级不高于当前基地等级的普通干员，遵循本局禁用与共享干员池规则。') },
+  { key: 'drawOptimization', msg: 'room.setDrawOptimization', name: N_('抽卡优化'),
+    desc: N_('真人和 AI 队友各自按盟约叠层排名抽卡：前四名权重分别为 3、2.5、2、1.5 倍，其余为 1 倍。初始商店、刷新及随机获取干员均生效；不叠层盟约不参与排名，零层不加权，同层共享排名。干员有多个盟约时只取最高倍率。') },
+];
+
+function RoomRules({ room, coop, isHost, online, busy, onSet }) {
+  return html`${ROOM_RULES.filter((r) => coop || !r.coop).map((r) => html`<section key=${r.key} class="room-ai-buff" aria-label=${t(r.name)}>
+    <label class="room-ai-buff__toggle">
+      <input type="checkbox" checked=${room[r.key] === true} disabled=${!isHost || !online || !!busy}
+        onChange=${(ev) => onSet(r, ev.currentTarget.checked)} />
+      <span>${t(r.name)}</span><b>${room[r.key] ? t('已开启') : t('未开启')}</b>
+    </label>
+    <span class="room-ai-buff__desc">${t(r.desc)}${isHost ? '' : t('由创建者设置。')}</span>
+  </section>`)}`;
+}
+
 /** Room screen component. */
 export function RoomScreen() {
   const room = useStore((s) => s.room);
@@ -260,6 +288,7 @@ export function RoomScreen() {
   };
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
+  const setRule = (r, enabled) => run(`rule:${r.key}`, () => net.request(r.msg, { enabled }));
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
@@ -336,6 +365,7 @@ export function RoomScreen() {
       </aside>`}
     </main>
     <${SpectatorBar} facts=${facts} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSit=${sit} />
+    <${RoomRules} room=${room} coop=${coop} isHost=${facts.isHost} online=${online} busy=${busy} onSet=${setRule} />
 
     <footer class="room-bar">
       <div class="room-bar__left">
