@@ -44,7 +44,11 @@ import * as S from '../support/index.js';
 import { mitigate } from '../../damage.js';
 import { frontOf } from '../../dir.js';
 
-/** 华法琳's granted trait: per-battle cap override (PRTS 下半 更新记录: 「初始7/精锐14 提升至 初始12/精锐24」). */
+/**
+ * 华法琳's granted trait: per-battle cap override 12 / 24 (PRTS 卫戍协议：盟约 下半 更新记录: 「付与的特质的叠层上限从 初始7/精锐14
+ * 提升至 初始12/精锐24」; the fork owner's call). Conflicting source: upstream GitHub #175 / PR #192 follows the data's 7 / 14
+ * (max_add_count_per_battle) and the original card text.
+ */
 export const GRANTED_CAP_OVERRIDE = Object.freeze({ garrison_95_a: 12, garrison_95_b: 24 });
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);

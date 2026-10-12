@@ -39,7 +39,7 @@ export const MUL_KEYS = Object.freeze([
  * 史尔特尔's 余烬, which sets both). `stealthOff` = an enemy 隐匿 source switched off after a block (Battle._stealthSwitch).
  */
 export const FLAG_KEYS = Object.freeze([
-  'stun', 'freeze', 'sleep', 'silence', 'disarm', 'stealth', 'invulnerable', 'unblockable', 'levitate', 'fear',
+  'stun', 'freeze', 'sleep', 'slumber', 'silence', 'disarm', 'stealth', 'invulnerable', 'unblockable', 'levitate', 'fear',
   'cold', 'reveal', 'bind', 'noHeal', 'untargetable', 'blockFly', 'noMove', 'noSp', 'burstLock', 'hidden',
   'noBlock', 'tremble', 'hitCount', 'hitCountArts', 'attract', 'float', 'noDisplace', 'isolated', 'camou', 'liftoff',
   // 自缚 (the unit's own immobility: 守墓石像's 转换模式, the 自缚 leaders) beside its `noMove` — 束缚 sets noMove too, and
@@ -67,6 +67,8 @@ export const STATUS = Object.freeze({
   // SLEEPING = 无法行动+无敌+不可阻挡: an enemy asleep is not blocked either — its blocker lets go and the slot frees, it
   // stays put until it wakes (the `sleep` flag: Battle._checkBlock / applyStatus, ai.js updateEnemy; DESIGN §24.9)
   sleep: { flags: { sleep: true, noBlock: true }, immune: 'sleep' },
+  // 小睡 (DOZE) has its own status: invulnerability cannot be bypassed by `hitSleep` (缇缇 S2's ward, kits/ops/chess_char_5_02-titi.js).
+  slumber: { flags: { slumber: true, noBlock: true, disarm: true, invulnerable: true } },
   // value = fraction of speed removed (0.8 ⇒ moveMul 0.2). Default 0.5.
   slow: { mods: (v) => ({ moveMul: 1 - clamp01(v ?? 0.5) }), valued: 0.5 },
   // 停顿 (sluggish): −80 % move speed.
@@ -136,7 +138,7 @@ export const STATUS = Object.freeze({
  * official term lists 晕眩/寒冷/冻结/恐惧/诱导…; the rest follow the operator kits that grant 抵抗 [ASSUMED]. 麻痹 is
  * stack-based: it decays instead (RESIST_PALSY_DECAY).
  */
-export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 'sleep', 'fear', 'tremble', 'attract', 'levitate',
+export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 'sleep', 'slumber', 'fear', 'tremble', 'attract', 'levitate',
   'bind', 'silence', 'disarm', 'sluggish', 'slow', 'groundbind']));
 
 /** Statuses that should be reported to clients as `['status', id, key, on]`. */

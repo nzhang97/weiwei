@@ -282,19 +282,25 @@ test('onstart (砾 143 / 瑕光 106 / 史尔特尔 107 / 锏 155): every deploy,
   assert.deepEqual(deploys('garrison_155_b', 5, self, ['yanShip', 'kjeragShip']), { yanShip: 48 }, '锏 精锐: +16, cap 48');
 });
 
-test('allyenemy_sleepstun_inrange (缇缇 125): enemies or operators entering 沉睡 / 晕眩 in range; cap 24 / 48', () => {
+test('allyenemy_sleepstun_inrange (缇缇 125): successful 沉睡 / 晕眩 applications include refreshes; cap 24 / 48', () => {
   for (const gid of idsOfKey('act2autochess_gar_event_allyenemy_sleepstun_inrange')) {
     const per = num(GR(gid).bb.bond_add_count);
     const h = battle({ units: [{ id: 'tt', g: [gid], row: 10, col: 4 }, { id: 'ally', row: 10, col: 5 }], bonds: { sargonShip: B(0), preciShip: B(0) }, enemies: [{ key: 'e_dummy', pos: [12, 9] }, { key: 'e_dummy', pos: [10, 5] }] });
     const far = h.enemies().find((e) => Math.round(e.y) === 12), near = h.enemies().find((e) => Math.round(e.y) === 10);
+    h.b.applyStatus(h.unit('ally'), 'slumber', { duration: 1 });
+    h.b.applyStatus(near, 'slumber', { duration: 1 });
+    expectAll(h, ['sargonShip', 'preciShip'], 0, `${gid}: slumber is not sleep or stun`);
     h.b.applyStatus(h.unit('ally'), 'sleep', { duration: 1 });
     expectAll(h, ['sargonShip', 'preciShip'], per, `${gid}: an operator in range fell asleep`);
     h.b.applyStatus(far, 'stun', { duration: 1 });
     expectAll(h, ['sargonShip', 'preciShip'], per, `${gid}: enemy out of range`);
     h.b.applyStatus(near, 'stun', { duration: 5 });
     h.b.applyStatus(near, 'stun', { duration: 5 });
-    expectAll(h, ['sargonShip', 'preciShip'], 2 * per, `${gid}: a stun refresh is not a new entry`);
-    for (let i = 0; i < 40; i++) { h.b.removeStatus(near, 'stun'); h.b.applyStatus(near, 'stun', { duration: 1 }); }
+    expectAll(h, ['sargonShip', 'preciShip'], 3 * per, `${gid}: both the first stun and its refresh count`);
+    h.b.applyStatus(near, 'sleep', { duration: 5 });
+    h.b.applyStatus(near, 'sleep', { duration: 5 });
+    expectAll(h, ['sargonShip', 'preciShip'], 5 * per, `${gid}: both the first sleep and its refresh count`);
+    for (let i = 0; i < 40; i++) h.b.applyStatus(near, 'stun', { duration: 1 });
     expectAll(h, ['sargonShip', 'preciShip'], capOf(gid), `${gid}: cap`);
     cover(gid);
   }
@@ -302,11 +308,12 @@ test('allyenemy_sleepstun_inrange (缇缇 125): enemies or operators entering �
   assert.equal(capOf('garrison_125_b'), 48);
 });
 
-test('缇缇 125 + S2 封护 (GitHub #162): every 0.25 s sleep pulse of the ward is a new entry — 8 s climb to the cap; a sleeper outside her range does not count', () => {
-  // the reporter's memory of the official mode: 「攻击范围内有陷入沉睡就开始迅速增加直至上限」; the pulse timing is [ASSUMED]
+test('缇缇 125 + S2 封护: every sleep application of the 0.1 s aura counts — fast climb to the cap; 小睡 wards and a sleeper outside her range do not count', () => {
+  // user report of the official mode: 「攻击范围内有陷入沉睡就开始迅速增加直至上限」 (garrisons/battle.js counts every
+  // successful sleep / stun application; the wards take 小睡, which is not 沉睡)
   for (const id of ['chess_char_5_02_a', 'chess_char_5_02_b']) {
     const gid = D.chess[id].garrisonIds.find((g) => GR(g).effectKey === 'act2autochess_gar_event_allyenemy_sleepstun_inrange');
-    const per = num(GR(gid).bb.bond_add_count), cap = capOf(gid);
+    const cap = capOf(gid);
     const s2 = D.chess[id].skills.find((x) => x.skillId === 'skchr_titi_2').index;
     // 缇缇 (10,4) facing right: range 3-3 = rows 9–11, cols 4–7. The ward ally (10,6) is the only operator in it; the
     // enemy (10,5) stands beside both wards (in her range), the one at (10,3) beside her back (out of her range)
@@ -324,32 +331,26 @@ test('缇缇 125 + S2 封护 (GitHub #162): every 0.25 s sleep pulse of the ward
       assert.equal(tt.skill.id, 'skchr_titi_2');
       return { h, tt };
     };
-    // out of range only: the pulses sleep it (each one an entry for the engine) but her trait ignores it
     {
       const { h, tt } = run([{ key: 'e_dummy', pos: [10, 3] }]);
       const back = h.enemies()[0];
-      expectAll(h, ['sargonShip', 'preciShip'], 2 * per, `${id}: the ward's two operators fall asleep in her range`);
-      h.run(8);
+      expectAll(h, ['sargonShip', 'preciShip'], 0, `${id}: the wards' 小睡 is not a sleep entry`);
+      h.run(3);
       assert.ok(tt.skill.active && back.s.flags.sleep, `${id}: the enemy at her back sleeps`);
-      const pulses = h.hooksOf('statusApplied').filter((c) => c.target === back && c.source === tt && c.entered);
-      assert.ok(pulses.length >= 30, `${id}: ${pulses.length} pulse entries in 8 s`);
-      expectAll(h, ['sargonShip', 'preciShip'], 2 * per, `${id}: an out-of-range sleeper does not count`);
+      expectAll(h, ['sargonShip', 'preciShip'], 0, `${id}: an out-of-range sleeper does not count`);
       checkInvariants(h.b);
     }
-    // in range: one entry per pulse (beside both wards: still one), the cap within the 8 s
     {
       const { h, tt } = run([{ key: 'e_dummy', pos: [10, 5] }, { key: 'e_dummy', pos: [10, 3] }]);
       const near = h.enemies().find((e) => Math.round(e.x) === 5);
       let capAt = null;
-      for (let t = 0; t < 8 - 1e-9; t += 0.25) {
-        h.run(0.25);
-        if (capAt == null && (gains(h).sargonShip ?? 0) >= cap) capAt = t + 0.25;
+      for (let t = 0; t < 4 - 1e-9; t += 0.1) {
+        h.run(0.1);
+        if (capAt == null && (gains(h).sargonShip ?? 0) >= cap) capAt = t + 0.1;
       }
-      assert.ok(tt.skill.active && near.s.flags.sleep, `${id}: still asleep after 8 s`);
-      const mine = h.hooksOf('statusApplied').filter((c) => c.target === near && c.source === tt && c.status === 'sleep');
-      assert.equal(mine.filter((c) => c.entered).length * 2, mine.length, `${id}: two wards, one entry per pulse`);
+      assert.ok(tt.skill.active && near.s.flags.sleep, `${id}: still asleep`);
       expectAll(h, ['sargonShip', 'preciShip'], cap, `${id}: the cap (${cap})`);
-      assert.ok(capAt != null && capAt <= 6.5, `${id}: capped after ${capAt} s`);
+      assert.ok(capAt != null && capAt <= 3, `${id}: capped after ${capAt} s`);
       checkInvariants(h.b);
     }
   }

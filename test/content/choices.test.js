@@ -252,16 +252,18 @@ test('悬赏决策: multi-battle bounties persist for `rounds` battles; 战术�
   m.dispose();
 });
 
-test('悬赏决策 (solo HARD R3): bounty enemies take the round\'s enemy scale only — no extra solo ×0.7 (research 08 §8 #8)', () => {
+test('悬赏决策 (solo HARD R4 / co-op HARD R3): bounty enemies take the round\'s enemy scale only — no extra solo ×0.7 (research 08 §8 #8)', () => {
+  // solo HARD's first decision is prepared in round 4 (data/config.json), co-op's in round 3
   const run = (mode, modeId, pickId) => {
-    const data = dataWith(modeId, 3, 'bounty', { bounty: [KILL, PERF] });
+    const r = modeId === 'mode_single_hard' ? 4 : 3;
+    const data = dataWith(modeId, r, 'bounty', { bounty: [KILL, PERF] });
     const h = makeMatch({ mode, difficulty: 'HARD', humans: 1, seed: 33, data, registry: REG, fake: true });
     h.start();
-    toDraft(h, 3);
+    toDraft(h, r);
     draftPicks(h, { p_0: pickId });
-    runTo(h, () => h.m.phase === 'ROUND_START' && h.m.round === 4);
-    const spec = FakeBattle.instances.find((f) => f.round === 3 && f.kind === 'normal').spawns.find((s) => s.tag === 'bounty');
-    const scale = h.m.gd.enemyScale(3);
+    runTo(h, () => h.m.phase === 'ROUND_START' && h.m.round === r + 1);
+    const spec = FakeBattle.instances.find((f) => f.round === r && f.kind === 'normal').spawns.find((s) => s.tag === 'bounty');
+    const scale = h.m.gd.enemyScale(r);
     h.m.dispose();
     return { spec, scale };
   };
@@ -279,9 +281,9 @@ test('悬赏决策 (solo HARD R3): bounty enemies take the round\'s enemy scale 
 });
 
 test('悬赏决策: the normal battle runs the client\'s spawn list — bounty units inserted into their host action, which is re-timed (waves.js withBounties)', () => {
-  const data = dataWith('mode_single_hard', 3, 'bounty', { bounty: [KILL] });
-  // seed 34: a ground R3 whose walker action 0 hosts the 山海众头目 (seed 33 is a FLY round: the bounty spawns alone)
-  const h = makeMatch({ mode: 'solo', difficulty: 'HARD', humans: 1, seed: 34, data, registry: REG, fake: true });
+  const data = dataWith('mode_multi_hard', 3, 'bounty', { bounty: [KILL] });
+  // co-op HARD (solo HARD drafts in R4); seed 34: a ground R3 whose walker action 0 hosts the 山海众头目 (seed 33 is a FLY round: the bounty spawns alone)
+  const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, seed: 34, data, registry: REG, fake: true });
   h.start();
   toDraft(h, 3);
   draftPicks(h, { p_0: KILL });

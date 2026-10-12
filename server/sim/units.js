@@ -184,7 +184,7 @@ export class Unit {
       shield,
       flags: flags || EMPTY,
     };
-    s.flags.stun = !!(flags.stun || flags.freeze || flags.sleep || flags.levitate);
+    s.flags.stun = !!(flags.stun || flags.freeze || flags.sleep || flags.slumber || flags.levitate);
     this._s = s;
     this._dirty = false;
     if (this.alive && prevMax > 0 && Math.abs(prevMax - maxHp) > 1e-9) {

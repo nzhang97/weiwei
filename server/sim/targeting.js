@@ -83,7 +83,7 @@ export function enemyStealthed(e) {
 export function canTargetEnemy(attacker, e, profile) {
   if (!e.alive || e.hidden || !e.deployed) return false;
   const f = e.s.flags;
-  if (f.untargetable || (f.sleep && !(profile && profile.hitSleep))) return false;
+  if (f.untargetable || f.slumber || (f.sleep && !(profile && profile.hitSleep))) return false;
   if (f.stealth && enemyStealthed(e)) return false;
   if (e.isFlying && !(profile && profile.canHitFly)) return false;
   if (profile && profile.groundOnly && e.isFlying) return false;
@@ -107,7 +107,7 @@ export function canTargetEnemy(attacker, e, profile) {
 export function canTargetAlly(e, a, ranged) {
   if (!a.alive || !a.deployed || a.hidden || a.kind === 'device') return false;
   const f = a.s.flags;
-  if (f.untargetable || f.sleep) return false;
+  if (f.untargetable || f.sleep || f.slumber) return false;
   if (ranged && (f.stealth || f.camou) && (e.blockedBy !== a || (e.profile && e.profile.blockFree))) return false;
   if (f.liftoff && evadesGround(e, a)) return false;
   return true;

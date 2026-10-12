@@ -75,7 +75,7 @@ export function flagsOf(u) {
   const f = u.s.flags;
   let bits = 0;
   if (u.side === 'enemy' ? !!u.blockedBy : u.blocking.length > 0) bits |= UF.BLOCKED;
-  if (f.stun && !f.freeze && !f.sleep) bits |= UF.STUNNED;
+  if (f.stun && !f.freeze && !f.sleep && !f.slumber) bits |= UF.STUNNED;
   if (f.freeze) bits |= UF.FROZEN;
   // 隐匿 or 迷彩 (buffs.js camou), shown the see-through way. An ally keeps it while blocking (targeting.js
   // canTargetAlly); an enemy's 隐匿 is off while it is blocked or revealed and until it hides again after a block (PRTS
@@ -86,7 +86,7 @@ export function flagsOf(u) {
   if (u.s.shield > 0 || u.buffs.some((b) => b.shieldHits > 0)) bits |= UF.SHIELD;
   if (f.invulnerable) bits |= UF.INVULN;
   if (f.cold) bits |= UF.COLD;
-  if (f.sleep) bits |= UF.SLEEP;
+  if (f.sleep || f.slumber) bits |= UF.SLEEP;
   if (u.motion === 'FLY') bits |= UF.FLYING;
   return bits;
 }
