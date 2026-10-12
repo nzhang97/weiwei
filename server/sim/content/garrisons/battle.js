@@ -6,17 +6,17 @@
 //   ADD_BOND            grants `give_garrison_id` to other operators before the first deployment (targets parsed from
 //                       the text: 身前一格 / 身前一格【X】/ 自身和身前一格 / 同一行最右边 / 所有【X】). A unit owns a garrison id
 //                       at most once (耀骑士临光 already carries the 144/159 it grants to itself). A granted trait keeps
-//                       its data cap like a native one: 华法琳's garrison_95 stops at 7 / 14 layers per battle (PRTS 下半
-//                       3月27日更新#2: 「从 初始12/精锐24 降低至 初始7/精锐14」; GitHub #175, PR #192 by @kukiC).
+//                       its own per-battle cap: 华法琳's garrison_95 stops at 12 / 24 layers per battle (GRANTED_CAP_OVERRIDE;
+//                       PRTS 卫戍协议：盟约 下半 更新记录: 「付与的特质的叠层上限从 初始7/精锐14 提升至 初始12/精锐24」 —
+//                       the data still carries 7 / 14).
 //   layer events        act1autochess_gar_event_useskill (skillStart) · _selfkillenemy (kill, every check_cnt) ·
 //                       _selfdead (death 'killed'; texts with 替身 also on every substitute ⇄ body swap, read from the
 //                       dollkeeper flag unit.trait.doll) · _consume_ammo (ammoUsed; range_id 0-1 self, 1-1 front tile,
 //                       x-5 self + 4 adjacent, pooled counter) · _enemy_abflag_inrange (an enemy in range ENTERS
 //                       'freeze', × prob) · act2autochess_gar_event_onstart (every deploy) ·
-//                       act2autochess_gar_event_allyenemy_sleepstun_inrange (an enemy or operator in range ENTERS
-//                       sleep / stun). "进入…时": re-applying a running status (a refresh) is not a new entry
-//                       (engine statusApplied ctx.entered) — except a pulse that re-applies its own short status as a
-//                       fresh one (applyStatus `reenter`: 缇缇 S2's sleep ward, DESIGN §24.8).
+//                       act2autochess_gar_event_allyenemy_sleepstun_inrange (sleep / stun successfully applied to an
+//                       enemy or operator in range, including refreshes and 缇缇 S2's re-entering sleep ward pulses;
+//                       only the freeze event requires a new entry (engine statusApplied ctx.entered).
 //                       Targets: bond_by_id / bond_self (own active bonds) / bond_actived_maxstack;
 //                       amounts: by_count / by_charcount_samerow / by_charlevel; conditions character_same_row /
 //                       character_same_col (≥ check_count incl. self). Gains go through support.gainLayers with
@@ -44,6 +44,9 @@ import * as S from '../support/index.js';
 import { mitigate } from '../../damage.js';
 import { frontOf } from '../../dir.js';
 
+/** 华法琳's granted trait: per-battle cap override (PRTS 下半 更新记录: 「初始7/精锐14 提升至 初始12/精锐24」). */
+export const GRANTED_CAP_OVERRIDE = Object.freeze({ garrison_95_a: 12, garrison_95_b: 24 });
+
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 const EMPTY = Object.freeze([]);
 /** Status keys for check_ab_flag values used by the data (16 = 冻结). */
@@ -66,7 +69,8 @@ export function install(battle) {
     if (set.has(g.garrisonId)) return null;
     set.add(g.garrisonId);
     const bb = g.bb || {};
-    const cap = S.num(bb.max_add_count_per_battle, 0) > 0 ? S.num(bb.max_add_count_per_battle) : Infinity;
+    const override = grantedBy ? GRANTED_CAP_OVERRIDE[g.garrisonId] : undefined;
+    const cap = override ?? (S.num(bb.max_add_count_per_battle, 0) > 0 ? S.num(bb.max_add_count_per_battle) : Infinity);
     const it = {
       unit, g, gid: g.garrisonId, key: g.effectKey, bb, bbStr: g.bbStr || {}, grantedBy,
       cap, capKey: `gar:${g.garrisonId}:${unit.id}`, cnt: 0, k: -1,
@@ -326,8 +330,10 @@ const INSTALLERS = {
   },
 
   act2autochess_gar_event_allyenemy_sleepstun_inrange(battle, list) {
-    battle.on('statusApplied', ({ target, status, entered }) => { // "进入沉睡/晕眩时": new entries only (ctx.entered)
-      if (!target || (status !== 'sleep' && status !== 'stun') || !entered) return;
+    // User-reported original-game behavior: 缇缇 S2 rapidly reaches the 24 / 48 per-battle cap.
+    // Count successful applications here, without changing the engine's entry semantics for other traits.
+    battle.on('statusApplied', ({ target, status }) => {
+      if (!target || (status !== 'sleep' && status !== 'stun')) return;
       if (!(target.side === 'enemy' || (target.side === 'ally' && target.kind === 'op'))) return;
       for (const it of list) if (S.onField(it.unit) && S.inRange(it.unit, target)) fireGain(battle, it);
     });

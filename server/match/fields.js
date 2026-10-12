@@ -35,6 +35,7 @@ import { TICK, SNAPSHOT_EVERY } from '../sim/constants.js';
 import { layerGainRoom } from '../../shared/constants.js';
 import { uniteLeft } from '../sim/spec.js';
 import { diyTokenOwner, diyRecordOf } from '../../shared/diy.js';
+import { GRANTED_CAP_OVERRIDE } from '../sim/content/garrisons/battle.js';
 
 export const MAX_TICKS_PER_INTERVAL = 8;
 export const INTERVAL_MS = 1000 / 30;
@@ -607,13 +608,14 @@ function layerAllowanceOf(p, gd) {
   const lineup = new Set(Object.keys(p.bonds && typeof p.bonds === 'object' ? p.bonds : {}));
   for (const u of units) for (const b of gd.chess(u.chessId)?.bonds || []) lineup.add(b);
   let extra = false;
-  const credit = (g, times) => {
+  const credit = (g, times, granted = false) => {
     const bb = g.bb || {};
     if (Number.isFinite(bb.extra_cnt)) { extra = true; return; }
     if (!Number.isFinite(bb.bond_add_count) && !Number.isFinite(bb.bond_add_count_multi)) return;
     const s = g.bbStr || {};
     const bonds = s.bond_type === 'bond_by_id' ? String(s.bond_id ?? '').split(',').map((x) => x.trim()).filter((x) => gd.bond(x)) : [...lineup];
-    const cap = Number(bb.max_add_count_per_battle) > 0 ? Number(bb.max_add_count_per_battle) : Infinity;
+    const override = granted ? GRANTED_CAP_OVERRIDE[g.garrisonId] : undefined;
+    const cap = override ?? (Number(bb.max_add_count_per_battle) > 0 ? Number(bb.max_add_count_per_battle) : Infinity);
     for (const b of bonds) out.set(b, (out.get(b) || 0) + cap * times);
   };
   for (const u of units) {
@@ -622,7 +624,7 @@ function layerAllowanceOf(p, gd) {
       if (!g || g.eventType !== 'IN_BATTLE') continue;
       if (g.effectKey !== 'ADD_BOND') { credit(g, 1); continue; }
       const given = gd.garrison(g.bbStr?.give_garrison_id);
-      if (given && given.eventType === 'IN_BATTLE') credit(given, units.length);
+      if (given && given.eventType === 'IN_BATTLE') credit(given, units.length, true);
     }
   }
   if (extra) for (const b of out.keys()) out.set(b, Infinity);
@@ -762,10 +764,15 @@ const sameMods = (a, b) => {
  * the midline of a two-half field is billed to one player's `total` and to the other's leak, so their own numbers
  * clamp it to 0); the players' own (each clamped to their `total`) are the fallback of a result with none; absent when
  * neither is complete.
- * @returns {{ ok: true, result: object } | { ok: false, reason: string }}
+ * The per-round layer bound is a verification threshold, not a combat rule: by default a gain above it is rejected; a
+ * caller may opt into `verifyLayerOverflow` only if it then verifies the flagged result against a server simulation
+ * before accepting any gains (`requiresLayerVerification`; reports.js _onResult) — a legitimate high-layer board is
+ * no longer replaced wholesale by a server re-run (user report: high-layer boards lost their layers).
+ * @returns {{ ok: true, result: object, requiresLayerVerification: boolean } | { ok: false, reason: string }}
  */
-export function validateClientResult(spec, raw, { gd = null } = {}) {
+export function validateClientResult(spec, raw, { gd = null, verifyLayerOverflow = false } = {}) {
   const bad = (reason) => ({ ok: false, reason });
+  let requiresLayerVerification = false;
   try {
     if (!spec || !raw || typeof raw !== 'object' || !raw.perPlayer || typeof raw.perPlayer !== 'object') return bad('shape');
     const B = specBounds(spec, gd);
@@ -850,8 +857,12 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       for (const [bondId, n] of Object.entries(p.layerGains || {})) {
         // ≤ 60 + 4·round + what the player's layer 特质 can add to the bond (layerAllowanceOf; uncapped ones: no flat
         // bound), and never past BOND_LAYER_CAP from the layers the bond started with (Battle.addLayers clamps)
-        const bound = Math.min(B.layerCap + (own.layerAllow.get(bondId) || 0), layerGainRoom(own.startLayers.get(bondId) || 0, Infinity));
-        if (!finiteIn(n, 0, bound)) return bad('layer bound');
+        const room = layerGainRoom(own.startLayers.get(bondId) || 0, Infinity);
+        if (!finiteIn(n, 0, room)) return bad('layer bound');
+        if (n > B.layerCap + (own.layerAllow.get(bondId) || 0)) {
+          if (!verifyLayerOverflow) return bad('layer bound');
+          requiresLayerVerification = true;
+        }
         if (n > 0 && spec.flags && spec.flags.layerGainsEnabled === false) return bad('layers disabled');
         if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('bond');
         if (n > 0 && own.bonds && !own.bonds.has(bondId)) return bad('layer bond');
@@ -923,7 +934,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       if (unspawned.length > B.spawnCount) return bad('unspawned');
       if (unspawned.length) result.unspawned = unspawned;
     }
-    return { ok: true, result };
+    return { ok: true, result, requiresLayerVerification };
   } catch (e) {
     return bad(`exception: ${e && e.message}`);
   }

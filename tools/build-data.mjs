@@ -40,6 +40,7 @@ import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { extendedGrid } from '../shared/loadoutRecord.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
+import { correctContentDescriptions } from './content-text.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -3400,7 +3401,8 @@ function buildChoices(ctx, effects, items, chess) {
     const mode = act.modeDataDict[modeId];
     const solo = mode.modeType === 'SINGLE';
     const diff = mode.modeDifficulty;
-    const sp = Object.entries(rounds).filter(([, es]) => es.some((e) => e.isSpPrepare)).map(([r]) => Number(r)).sort((a, b) => a - b);
+    // Solo HARD's first decision follows battle 3 (prepared in round 4); co-op / ABYSS still prepare at round 3.
+    const sp = Object.entries(rounds).filter(([, es]) => es.some((e) => e.isSpPrepare)).map(([r]) => modeId === 'mode_single_hard' && Number(r) === 3 ? 4 : Number(r)).sort((a, b) => a - b);
     const m = {};
     for (const r of sp) {
       let families;
@@ -3608,7 +3610,8 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         levelMaxPlayTime: waves[tplId]?.maxPlayTime ?? null,
         prepTime: multi || type === 'LOCAL' ? turn.normalPhaseTime ?? null : null,
         prepTimeData: turn.normalPhaseTime ?? null,
-        isSpPrepare: entries.some((e) => e.isSpPrepare), isBoss, isHidden,
+        // Solo HARD's first decision follows battle 3; co-op / ABYSS still prepare at round 3.
+        isSpPrepare: modeId === 'mode_single_hard' && (r === 3 || r === 4) ? r === 4 : entries.some((e) => e.isSpPrepare), isBoss, isHidden,
         bossOvertimeAfter: isBoss ? turn.bossTurnHpReduceTime || 150 : null,
       };
       enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden);
@@ -4095,6 +4098,7 @@ async function main() {
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
   const config = buildConfig(ctx, waves, stages, bands, chess, items);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
+  correctContentDescriptions(files);
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)
   const errors = [...validateAll(files), ...passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`))];

@@ -54,7 +54,7 @@ export class MatchReports {
     const f = this._fieldByBattle(msg.battleId);
     if (!f || f.done || f.heldResult || f.verifyJob || f.mode !== 'client' || f.authority !== ps.playerId) return OK;
     const bossLike = f.kind === 'boss' || f.kind === 'hidden';
-    const v = validateClientResult(f.spec, msg.result, { gd: this.gd });
+    const v = validateClientResult(f.spec, msg.result, { gd: this.gd, verifyLayerOverflow: !bossLike });
     if (!v.ok) {
       this.verifyStats.rejected++;
       this.log.warn?.(`[match ${this.roomCode}] ${f.fieldId}: rejected client result from ${ps.playerId} (${v.reason}) — server re-simulation`);
@@ -105,7 +105,7 @@ export class MatchReports {
       if (bossLike) { this._checkFinalEnd(); this._broadcastPool(false); }
     };
     if (bossLike) accept(result);
-    else this._verifyResult(f, result, accept);
+    else this._verifyResult(f, result, accept, { force: v.requiresLayerVerification });
     return OK;
   }
 
@@ -117,10 +117,12 @@ export class MatchReports {
   /**
    * SP_VERIFY: re-simulate in headless slices. 'all' waits before accepting (the server wins on a mismatch);
    * 'sample' accepts immediately and only logs differences for ~1 battle in 8, even after the field's phase ends.
+   * `force` (a result whose layer gains passed the per-round threshold, validateClientResult requiresLayerVerification):
+   * verified before accepting whatever SP_VERIFY says — the server's simulation wins on a mismatch.
    */
-  _verifyResult(f, result, accept) {
-    if (this.verifyMode === 'off') { accept(result); return; }
-    const required = this.verifyMode === 'all';
+  _verifyResult(f, result, accept, { force = false } = {}) {
+    if (this.verifyMode === 'off' && !force) { accept(result); return; }
+    const required = force || this.verifyMode === 'all';
     const start = () => {
       const job = new HeadlessJob(this._specBattle(f.spec), { players: f.players, onError: (e) => this.reportError('verify', e) });
       if (required) {
@@ -142,7 +144,7 @@ export class MatchReports {
         try {
           if (!job.run(this.headlessSliceMs)) { schedule(); return; }
           const run = job.output();
-          const mine = validateClientResult(f.spec, compactForVerify(run.result), { gd: this.gd });
+          const mine = validateClientResult(f.spec, compactForVerify(run.result), { gd: this.gd, verifyLayerOverflow: true });
           const server = mine.ok ? mine.result : run.result;
           this.verifyStats.checked++;
           if (resultDigest(server).hash !== resultDigest(result).hash) {

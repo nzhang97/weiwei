@@ -123,6 +123,7 @@ export function deployMap(stage, { deviceOverrides = {}, tileOverrides = {}, fie
       if (cls) map.set(tileKey(r, c), cls);
     }
   }
+  const waterPlatforms = new Set();
   for (const d of Array.isArray(stage?.devices) ? stage.devices : []) {
     if (!isObj(d) || !Array.isArray(d.pos)) continue;
     const [r, c] = boardTileOf(field, d.pos[0], d.pos[1]);
@@ -134,13 +135,21 @@ export function deployMap(stage, { deviceOverrides = {}, tileOverrides = {}, fie
     if (!active) continue;
     if (OBSTACLE_ROLES.has(d.role)) map.delete(tileKey(r, c));
     else if (PLATFORM_ROLES.has(d.role)) map.set(tileKey(r, c), 'ranged');
-    else if (WATER_PLATFORM_ROLES.has(d.role)) map.set(tileKey(r, c), 'melee');
+    else if (WATER_PLATFORM_ROLES.has(d.role)) { map.set(tileKey(r, c), 'melee'); waterPlatforms.add(tileKey(r, c)); }
   }
   for (const [k, v] of Object.entries(isObj(tileOverrides) ? tileOverrides : {})) {
     const [r, c] = String(k).split(',').map(Number);
     if (!inField(r, c)) continue;
     if (v === 'melee' || v === 'ranged') map.set(tileKey(r, c), v);
     else if (v === 'none') map.delete(tileKey(r, c));
+  }
+  // mirror of the server: 深水区 stays undeployable under any override unless an active 特制水上平台 covers it
+  for (const k of [...map.keys()]) {
+    if (waterPlatforms.has(k)) continue;
+    const [r, c] = k.split(',').map(Number);
+    const [sr, sc] = fieldTile(field, r, c);
+    const t = legend[rows?.[sr]?.[sc]];
+    if (t && t.tileKey === 'tile_deepsea') map.delete(k);
   }
   return map;
 }

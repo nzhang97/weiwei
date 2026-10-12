@@ -113,6 +113,7 @@ export function buildDeployMap(stage, { deviceOverrides = {}, tileOverrides = {}
     }
   }
   const devices = stage && Array.isArray(stage.devices) ? stage.devices : [];
+  const waterPlatforms = new Set();
   for (const d of devices) {
     if (!d || !Array.isArray(d.pos)) continue;
     const [r, c] = boardTileOf(field, d.pos[0], d.pos[1]);
@@ -125,13 +126,22 @@ export function buildDeployMap(stage, { deviceOverrides = {}, tileOverrides = {}
     const k = tileKey(r, c);
     if (OBSTACLE_ROLES.has(d.role)) map.delete(k);
     else if (PLATFORM_ROLES.has(d.role)) map.set(k, 'ranged');
-    else if (WATER_PLATFORM_ROLES.has(d.role)) map.set(k, 'melee');
+    else if (WATER_PLATFORM_ROLES.has(d.role)) { map.set(k, 'melee'); waterPlatforms.add(k); }
   }
   for (const [k, v] of Object.entries(tileOverrides || {})) {
     const [r, c] = parseKey(k);
     if (!inField(r, c)) continue;
     if (v === 'melee' || v === 'ranged') map.set(tileKey(r, c), v);
     else if (v === 'none') map.delete(tileKey(r, c));
+  }
+  // 深水区 never takes a unit unless an active 特制水上平台 stands on it: no tile override (机变 card) or other device
+  // may make deep water deployable (user report: operators deployed into the water).
+  for (const k of [...map.keys()]) {
+    if (waterPlatforms.has(k)) continue;
+    const [r, c] = parseKey(k);
+    const [sr, sc] = fieldTile(field, r, c);
+    const t = legend[rows?.[sr]?.[sc]];
+    if (t && t.tileKey === 'tile_deepsea') map.delete(k);
   }
   return map;
 }

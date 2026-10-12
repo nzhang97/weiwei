@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getData } from '../../server/data.js';
+import { GRANTED_CAP_OVERRIDE } from '../../server/sim/content/garrisons/battle.js';
 
 const D = getData({ log: { warn() {}, error() {}, info() {} } });
 const GR = (gid) => D.garrisons[gid];
@@ -357,10 +358,11 @@ test('缇缇 125 + S2 封护 (GitHub #162): every 0.25 s sleep pulse of the ward
 // ---------------------------------------------------------------------------------------------------------------------
 // ADD_BOND grants
 
-// PRTS 卫戍协议：盟约 下半, 3月27日更新#2: 「[Ⅳ阶]华法琳：赋予的特质的叠层上限从 初始12/精锐24 降低至 初始7/精锐14」 — the
-// data's 7 / 14 (GitHub #175; from PR #192 by @kukiC)
-test('ADD_BOND 华法琳 72: the front operator gets garrison_95 (own active bonds +1 / +2), capped at the data\'s 7 / 14 (GitHub #175)', () => {
-  for (const [gid, per, cap] of [['garrison_72_a', 1, 7], ['garrison_72_b', 2, 14]]) {
+// PRTS 卫戍协议：盟约 下半 更新记录: 「[Ⅳ阶]华法琳：付与的特质的叠层上限从 初始7/精锐14 提升至 初始12/精锐24」 — the data
+// still carries 7 / 14 (garrison_95 max_add_count_per_battle); GRANTED_CAP_OVERRIDE applies 12 / 24 (the fork owner's call,
+// overriding upstream PR #192).
+test('ADD_BOND 华法琳 72: the front operator gets garrison_95 (own active bonds +1 / +2), capped at 12 / 24 per battle', () => {
+  for (const [gid, per, cap, dataCap] of [['garrison_72_a', 1, 12, 7], ['garrison_72_b', 2, 24, 14]]) {
     const give = GR(gid).bbStr.give_garrison_id;
     const h = battle({
       units: [{ id: 'warfarin', g: [gid], row: 10, col: 4 }, { id: 'front', row: 10, col: 5, bonds: ['yanShip', 'kjeragShip', 'egirShip'] }, { id: 'side', row: 11, col: 4, bonds: ['yanShip'] }],
@@ -370,11 +372,12 @@ test('ADD_BOND 华法琳 72: the front operator gets garrison_95 (own active bon
     assert.equal(num(GR(give).bb.bond_add_count), per);
     skill(h, f);
     assert.deepEqual(gains(h), { yanShip: per, kjeragShip: per });
-    assert.equal(num(GR(give).bb.max_add_count_per_battle), cap, `${give}: the data cap`);
-    for (let i = 1; i < 7; i++) skill(h, f);
-    assert.deepEqual(gains(h), { yanShip: cap, kjeragShip: cap }, `${gid}: the seventh activation reaches the cap`);
+    assert.equal(num(GR(give).bb.max_add_count_per_battle), dataCap, `${give}: the data cap`);
+    assert.equal(GRANTED_CAP_OVERRIDE[give], cap, `${give}: the override`);
+    for (let i = 1; i < 12; i++) skill(h, f);
+    assert.deepEqual(gains(h), { yanShip: cap, kjeragShip: cap }, `${gid}: the twelfth activation reaches the cap`);
     skill(h, f);
-    assert.deepEqual(gains(h), { yanShip: cap, kjeragShip: cap }, `${gid}: the eighth adds no layers`);
+    assert.deepEqual(gains(h), { yanShip: cap, kjeragShip: cap }, `${gid}: the thirteenth adds no layers`);
     for (let i = 0; i < 30; i++) skill(h, f);
     assert.deepEqual(gains(h), { yanShip: cap, kjeragShip: cap }, `${gid}: later activations stay capped`);
     skill(h, h.unit('warfarin'));
