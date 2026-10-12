@@ -73,7 +73,6 @@ import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } f
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
-import { FreeOperatorPickModal } from '../ui/freeOperatorPick.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
 import { RewardOverlay } from '../ui/rewardOverlay.js';
 import { ChoiceOverlay } from '../ui/choiceOverlay.js';
@@ -208,7 +207,6 @@ function MatchScreen() {
   const [camKind, setCamKind] = useState('prep');        // kind of the last camera request (data-camera)
   const [replace, setReplace] = useState(null);          // equip-replace dialog: { request, resolve }
   const [pauseBusy, setPauseBusy] = useState(false);
-  const [freePickOpen, setFreePickOpen] = useState(false); // 每回合免费自选干员 (room option)
   const [armedCard, setArmedCard] = useState(null);     // the shop bar's armed card { kind, id } (merge tile cue)
   const cc = isClientCombat(pub);
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
@@ -1478,7 +1476,7 @@ function MatchScreen() {
 
       ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${collapsed} refreshBusy=${refreshBusy} onCollapse=${setCollapsed}
         barRef=${barRef} offBonds=${offBonds}
-        onFreePick=${() => setFreePickOpen(true)} onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
+        onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
         onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null, tap: ++cardTap.current })}
         onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
         onRefuse=${(reason) => { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
@@ -1549,7 +1547,6 @@ function MatchScreen() {
     ${replace ? html`<${EquipReplaceDialog} request=${replace.request} getItem=${gd.item}
       onConfirm=${(uid) => closeReplace(uid)} onCancel=${() => closeReplace(null)} />` : null}
 
-    <${FreeOperatorPickModal} open=${freePickOpen} onClose=${() => setFreePickOpen(false)} priv=${priv} editable=${editable} />
     <${SettingsModal} open=${settingsOpen} onClose=${() => setSettingsOpen(false)} />
     <${ExitModal} open=${exitOpen} onClose=${() => setExitOpen(false)} solo=${solo} />
   </div>`;

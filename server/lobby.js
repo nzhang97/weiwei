@@ -189,11 +189,7 @@ export class Room {
      * put every human seat before every AI seat (Match opts.aiPicksLast). Kept across the room's matches.
      */
     this.aiPicksLast = false;
-    // optional room rules (off by default, draw optimization on): Match opts of the same names
-    this.aiOperatorBuff = false;
-    this.aiRound34Nerf = false;
-    this.humanOperatorBuff = false;
-    this.freeOperatorPick = false;
+    // optional room rule 抽卡优化 (on by default): Match opts.drawOptimization
     this.drawOptimization = true;
     /** @type {string | null} */
     this.hostId = null;
@@ -245,10 +241,6 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       aiPicksLast: this.aiPicksLast,
-      aiOperatorBuff: this.aiOperatorBuff,
-      aiRound34Nerf: this.aiRound34Nerf,
-      humanOperatorBuff: this.humanOperatorBuff,
-      freeOperatorPick: this.freeOperatorPick,
       drawOptimization: this.drawOptimization,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
@@ -360,10 +352,6 @@ export class Lobby {
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
-      case 'room.setAiOperatorBuff': return this.setRoomRule(session, 'aiOperatorBuff', msg.enabled, true);
-      case 'room.setAiRound34Nerf': return this.setRoomRule(session, 'aiRound34Nerf', msg.enabled, true);
-      case 'room.setHumanOperatorBuff': return this.setRoomRule(session, 'humanOperatorBuff', msg.enabled, false);
-      case 'room.setFreeOperatorPick': return this.setRoomRule(session, 'freeOperatorPick', msg.enabled, false);
       case 'room.setDrawOptimization': return this.setRoomRule(session, 'drawOptimization', msg.enabled, false);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
@@ -555,10 +543,6 @@ export class Lobby {
     return OK;
   }
 
-  setAiOperatorBuff(session, { enabled }) { return this.setRoomRule(session, 'aiOperatorBuff', enabled, true); }
-  setAiRound34Nerf(session, { enabled }) { return this.setRoomRule(session, 'aiRound34Nerf', enabled, true); }
-  setHumanOperatorBuff(session, { enabled }) { return this.setRoomRule(session, 'humanOperatorBuff', enabled, false); }
-  setFreeOperatorPick(session, { enabled }) { return this.setRoomRule(session, 'freeOperatorPick', enabled, false); }
   setDrawOptimization(session, { enabled }) { return this.setRoomRule(session, 'drawOptimization', enabled, false); }
 
   /** Optional room rule `key` (host-only, before the match; `coopOnly`: AI-teammate rules). */
@@ -786,10 +770,6 @@ export class Lobby {
         modeId: modeIdFor(room.mode, room.difficulty),
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
-        aiOperatorBuff: room.aiOperatorBuff === true,
-        aiRound34Nerf: room.aiRound34Nerf === true,
-        humanOperatorBuff: room.humanOperatorBuff === true,
-        freeOperatorPick: room.freeOperatorPick === true,
         drawOptimization: room.drawOptimization === true,
         seats,
         // the spectator seats (header): watched like eliminated players, never players

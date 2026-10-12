@@ -239,11 +239,3 @@
 .lvcard.is-armed { background: linear-gradient(180deg, #ffd65a, #e0a800); color: #1d1400; box-shadow: 0 0 0 2px #fff4c2, 0 0 .3rem rgba(255, 198, 0, .5); animation: pulse-gold 1.1s var(--ease-in-out) infinite; }
 .lvcard.is-armed .lvcard__label { letter-spacing: .12em; padding-left: .12em; }
 
-/* 每回合免费自选干员 (room option; ui/freeOperatorPick.js) */
-.toolbtn--freepick { --tb: var(--mint-400); grid-column: 1 / -1; justify-self: end; }
-.free-pick-modal p { font-size: calc(.18 * var(--t)); line-height: 1.6; }
-.free-pick-search { width: 100%; padding: .12rem; margin: .12rem 0; background: var(--bg); color: var(--text-hi); border: 1px solid var(--line-2); font-size: calc(.2 * var(--t)); }
-.free-pick-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(1.65rem, 1fr)); gap: .1rem; max-height: 48vh; overflow-y: auto; }
-.free-pick-card { display: flex; align-items: center; gap: .08rem; padding: .08rem; color: var(--text-hi); background: rgba(8,11,10,.9); border: 1px solid var(--line-2); font-size: calc(.17 * var(--t)); }
-.free-pick-card img { width: .45rem; height: .6rem; object-fit: cover; }
-.free-pick-card.is-selected { border-color: var(--mint-400); background: rgba(23,249,183,.12); }

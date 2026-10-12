@@ -295,7 +295,7 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
  *   the bonds this mode never activates (gameLogic modeOffBonds), struck through on the operator cards
  */
 export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
-  reward = null, onReward, onRewardLater, onArm = null, offBonds = null, onFreePick = null }) {
+  reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   const chessSlots = slots.map((s, i) => ({ s, i })).filter(({ s }) => !s || s.kind !== 'item');
@@ -350,10 +350,6 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   const hk = { refresh: hotkeyLabelOf('refresh'), freeze: hotkeyLabelOf('freeze') }; // the player's keys (设置 → 快捷键)
   return html`<section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} ref=${barRef} aria-label=${t('调度中心')}>
     <div class="shopbar__tools">
-      ${priv?.freeOperatorPick?.enabled ? html`<button type="button" class="toolbtn toolbtn--freepick"
-        disabled=${!editable || priv.freeOperatorPick.used} onClick=${onFreePick}>
-        <span>${priv.freeOperatorPick.used ? t('本回合已自选') : t('免费自选干员')}</span>
-      </button>` : null}
       <span class="shopbar__remain">${t('剩余可放置角色：')}<b class=${cx('num', remaining === 0 && 't-orange')}>${remaining}</b></span>
       <button type="button" class=${cx('toolbtn', 'toolbtn--ice', frozen && 'is-on')} disabled=${!!frzReason} onClick=${onFreeze}
         title=${frzReason || (frozen ? t('解冻商店 · {key}', { key: hk.freeze }) : t('冻结商店（下回合保留） · {key}', { key: hk.freeze }))}>

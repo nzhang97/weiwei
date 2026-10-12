@@ -71,7 +71,6 @@ export const actions = {
   band: (bandId) => act('g.band', { bandId }),
   bandSkip: () => act('g.bandSkip'),
   buy: (slot) => act('g.buy', { slot }),
-  freeOperatorPick: (chessId) => act('g.freeOperatorPick', { chessId }, { sfx: 'pick' }),
   // a tap while the previous g.refresh is still on the wire is dropped (GitHub #501) — see onRefreshBusy above
   refresh: () => {
     if (refreshPending) return Promise.resolve(false);
