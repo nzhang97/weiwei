@@ -33,12 +33,20 @@ const sameSet = (a, b) => a.length === b.length && [...a].sort().join() === [...
 const subset = (a, b) => a.every((x) => b.includes(x));
 const EE = (s) => `enemyeffect_${s}`;
 
-/** The data card of a screenshot reading [title, enemy, coins, battles] (by title, the enemy in the text, coins, battles). */
+/**
+ * The data card of a screenshot reading [title, enemy, coins, battles] (by title, the enemy in the text, coins). The
+ * duration shown is the draft's (choices.js BOUNTY_DRAFT_BATTLES: R3 two battles, R9 / R11 one), not the card's own
+ * PRTS value, so it only breaks ties. Three cards carry PRTS corrections (tools/build-data.mjs bountyCorrections, the
+ * fork owner's call over these readings): the readings name their uncorrected values.
+ */
+const PRTS_CORRECTED = { '“鼠王”·悬赏|“鼠王”|2': 'enemyeffect_b_11', '悬赏·损伤II|灼藤|2': 'enemyeffect_12_7', '悬赏·频次III|清明|3': 'enemyeffect_11_6' };
 function resolve([title, enemy, coin, battles]) {
+  const fixed = PRTS_CORRECTED[`${title}|${enemy}|${coin}`];
+  if (fixed) return fixed;
   const name = OFFICIAL.aliases[enemy] || enemy;
   // "1只萨卡兹枯朽战士，" — the enemy's whole name (萨卡兹枯朽战士 is not 萨卡兹枯朽战士组长)
-  const hits = CARDS.filter((c) => c.name === title && c.coin === coin && (c.desc.includes(`1只${name}，`) || c.desc.includes(`1个${name}，`))
-    && (battles === 2 ? c.rounds === 2 : c.rounds === 1));
+  let hits = CARDS.filter((c) => c.name === title && c.coin === coin && (c.desc.includes(`1只${name}，`) || c.desc.includes(`1个${name}，`)) && !c.multiRound);
+  if (hits.length > 1) hits = hits.filter((c) => (battles === 2 ? c.rounds === 2 : c.rounds === 1));
   assert.equal(hits.length, 1, `${title} ${enemy} ${coin}: ${hits.map((c) => c.effectId).join(', ') || 'no card'}`);
   return hits[0].effectId;
 }
@@ -117,7 +125,8 @@ test('#2 R3 (22 of 22 official drafts): one of the official sets of six "接下�
   const hits = SPEC.initial.groups.map(() => []);
   for (const d of r3) {
     assert.equal(d.family, 'bounty', `${d.where}: R3 is a 悬赏决策`);
-    assert.ok(d.ids.every((id) => CARD.get(id).rounds === 2 && CARD.get(id).draftPool === 'initial'), `${d.where}: two-battle cards`);
+    // the R3 draft offers its cards for two battles (choices.js BOUNTY_DRAFT_BATTLES), whatever a card's own PRTS duration
+    assert.ok(d.ids.every((id) => CARD.get(id).draftPool === 'initial'), `${d.where}: initial-draft cards`);
     assert.equal(tiersOf(d.ids), '111223', `${d.where}: tiers`);
     assert.ok(d.ids.every((id) => !isBoss(CARD.get(id).enemyKey)), `${d.where}: no boss`);
     const i = SPEC.initial.groups.findIndex((s) => sameSet(s.cards, d.ids));

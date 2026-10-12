@@ -188,7 +188,9 @@ test('悬赏决策 E2E (co-op, real battles): the picker\'s own battle gets the 
   for (const c of m.publicView().sp.cards) {
     const card = DATA.choices.cards.bounty.find((x) => x.effectId === c.id);
     assert.equal(c.kind, 'bounty');
-    assert.deepEqual([c.coin, c.payout, c.rounds, c.enemyKey, c.count], [card.coin, card.payout, card.rounds, card.enemyKey, card.count]);
+    // the first draft offers a kill bounty for two battles (choices.js BOUNTY_DRAFT_BATTLES); 战术特训 keeps its own
+    const rounds = card.payout === 'perfect' ? card.rounds : 2;
+    assert.deepEqual([c.coin, c.payout, c.rounds, c.enemyKey, c.count], [card.coin, card.payout, rounds, card.enemyKey, card.count]);
   }
   const [a, b] = sp.order;
   draftPicks(h, { [a]: KILL, [b]: PERF });
@@ -215,7 +217,8 @@ test('悬赏决策 E2E (co-op, real battles): the picker\'s own battle gets the 
   // coins arrive at the next round start with the income (leftover funds were lost at prep end)
   assert.equal(A.funds, m.gd.income(4) + kill.coin);
   assert.equal(B.funds, m.gd.income(4) + perf.coin, 'perfect own phase ⇒ 战术特训 coins');
-  assert.equal(A.bounties.length + B.bounties.length, 0, 'one-battle bounties expire');
+  assert.deepEqual(A.bounties.map((x) => x.roundsLeft), [1], 'the R3 kill bounty comes once more (two battles)');
+  assert.equal(B.bounties.length, 0, 'the one-battle 战术特训 expires');
   matchInvariants(m);
   m.dispose();
 });

@@ -1837,6 +1837,29 @@ function buildEffects(ctx) {
   for (const id of Object.keys(ctx.act.effectBuffInfoDataDict)) {
     if (!out[id]) warn(`effectBuffInfoDataDict has ${id} without effectInfoDataDict entry`);
   }
+  // PRTS lower-period bounty table corrections, checked 2026-10-09.
+  const bountyCorrections = {
+    enemyeffect_b_11: { coin: 3 }, enemyeffect_18_1: { round: 1 }, enemyeffect_16_2: { round: 2 },
+    enemyeffect_11_6: { enemy_id: 'enemy_1207_sfji' }, enemyeffect_12_7: { coin: 1, name: '悬赏·损伤I' },
+  };
+  for (const [id, correction] of Object.entries(bountyCorrections)) {
+    const e = out[id]; if (!e) continue;
+    if (correction.name) e.name = correction.name;
+    if (correction.coin != null) e.enemyPrice = correction.coin;
+    for (const b of e.buffs) if (/add_enemy/.test(b.key)) {
+      for (const k of ['coin', 'round']) if (correction[k] != null) b.bb[k] = correction[k];
+      if (correction.enemy_id) b.bbStr.enemy_id = correction.enemy_id;
+    }
+    for (const k of ['coin', 'round', 'enemy_id']) if (correction[k] != null) e.params[k] = correction[k];
+    for (const key of ['desc', 'descRaw']) {
+      let text = e[key];
+      if (correction.coin != null) text = text.replace(/获得(<@ba.vup>)?\d+(<\/>)?资金/g, (_, a, b) => `获得${a || ''}${correction.coin}${b || ''}资金`);
+      if (correction.round === 1) text = text.replace('接下来<@ba.vup>两场作战</>', '<@ba.vup>下场作战</>').replace('接下来两场作战', '下场作战');
+      if (correction.round === 2) text = text.replace('<@ba.vup>下场战斗</>', '接下来<@ba.vup>两场作战</>').replace('下场战斗', '接下来两场作战');
+      if (correction.enemy_id) text = text.replace('清明', '沉沙');
+      e[key] = text;
+    }
+  }
   return out;
 }
 
@@ -3277,8 +3300,15 @@ const TACTIC_DRAFT = {
 const bountyDraftOf = (r) => (r < 8 ? 'initial' : r < 11 ? 'boss' : 'hunter');
 
 /** The draft kind a bounty card belongs to by its shape, null when no draft offers it (see above). */
+/**
+ * The PRTS duration corrections (buildEffects bountyCorrections) do not move a card between the official drafts: 18_1
+ * (临时收音师, now 下场作战) stays in the R3 initial lists it was seen in, 16_2 (越长尘, now 接下来两场作战) in the R11
+ * hunter pool.
+ */
+const BOUNTY_DRAFT_PINNED = Object.freeze({ enemyeffect_18_1: 'initial', enemyeffect_16_2: 'hunter' });
 function bountyDraftPool(e, main, draftExcluded) {
   if (draftExcluded) return null;
+  if (BOUNTY_DRAFT_PINNED[e.effectId]) return BOUNTY_DRAFT_PINNED[e.effectId];
   if (main.rounds === 2) return 'initial';
   if (main.rounds !== 1) return null; // multi-round
   if (/^enemyeffect_b_\d+$/.test(e.effectId) || e.effectId === 'enemyeffect_5_1') return 'boss';

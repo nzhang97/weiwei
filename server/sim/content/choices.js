@@ -196,7 +196,10 @@ const BOUNTY = {
     const id = ev.card.id;
     const spec = bountyOf(effectOf(ctx, id), cardRecord(ctx.data, 'bounty', id)) ?? cardRecord(ctx.data, 'bounty', id);
     if (!spec || !ctx.gd.enemy(spec.enemyKey)) return;
-    ctx.addBounty(spec);
+    // the drafted duration and its text (server/match/choices.js bountyDraftCard: first draft two battles, later one)
+    const r = ev.card.rounds;
+    const multi = spec.multiRound === true || Number(spec.rounds) >= 90;
+    ctx.addBounty(Number.isInteger(r) && r !== spec.rounds && !multi ? { ...spec, rounds: r, desc: ev.card.desc ?? spec.desc } : spec);
   },
 };
 

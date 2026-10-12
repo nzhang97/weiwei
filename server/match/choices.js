@@ -192,6 +192,43 @@ export function draftBounty(c, kind = null) {
   return c.payout !== 'perfect';
 }
 
+/**
+ * The battles a 悬赏决策 card lasts by the draft that offers it (the fork owner's rule): the first draft ('initial', R3 /
+ * solo HARD R4) offers two-battle bounties, the later ones ('boss' R9, 'hunter' R11) one-battle bounties, whatever the
+ * card's own PRTS duration — a card may appear in either draft. Multi-round cards keep their own duration.
+ */
+export const BOUNTY_DRAFT_BATTLES = Object.freeze({ initial: 2, boss: 1, hunter: 1 });
+
+/** A bounty text rewritten to last `n` battles (1: 下场作战, 2: 接下来两场作战; rich or plain). */
+export function bountyRoundsText(text, n) {
+  if (typeof text !== 'string' || !text) return text;
+  if (n === 1) {
+    return text
+      .replace(/接下来<@ba\.vup>两场(作战|战斗)<\/>/g, '<@ba.vup>下场作战</>')
+      .replace(/接下来两场(作战|战斗)/g, '下场作战');
+  }
+  if (n === 2) {
+    return text
+      .replace(/(?<!接下来)<@ba\.vup>下场(作战|战斗)<\/>/g, '接下来<@ba.vup>两场作战</>')
+      .replace(/(?<![接下来<>])下场(作战|战斗)/g, '接下来两场作战');
+  }
+  return text;
+}
+
+/** A bounty record carrying the duration / text a drafted `card` was offered with (bountyDraftCard). */
+export function drafted(src, card) {
+  if (!src || !card || src === card || !Number.isInteger(card.rounds) || card.rounds === src.rounds || isMultiRoundBounty(src)) return src;
+  return { ...src, rounds: card.rounds, desc: card.desc ?? src.desc };
+}
+
+/** A draft card lasting the battles of draft `kind` (BOUNTY_DRAFT_BATTLES), its text rewritten to match. */
+export function bountyDraftCard(gd, c, kind) {
+  const card = bountyCard(gd, c);
+  const n = BOUNTY_DRAFT_BATTLES[kind];
+  if (!Number.isInteger(n) || isMultiRoundBounty(c) || card.payout === 'perfect' || card.rounds === n) return card;
+  return { ...card, rounds: n, desc: bountyRoundsText(card.desc, n), descRaw: bountyRoundsText(card.descRaw, n) };
+}
+
 /** The draft card of a cards.bounty entry (the official rich text, a multi-round card's battles and text rewritten). */
 export function bountyCard(gd, c) {
   const eff = typeof gd.effect === 'function' ? gd.effect(c.effectId) : null;
@@ -319,7 +356,7 @@ function bountyDraftCards(gd, rng, n, sch, round) {
   const out = spec ? structuredBounty(rng, kind, spec, byId) : [];
   const taken = new Set(out);
   if (out.length < n) out.push(...drawDistinct(rng, eligible, n - out.length, taken));
-  return rng.shuffle(out).slice(0, n).map((c) => bountyCard(gd, c));
+  return rng.shuffle(out).slice(0, n).map((c) => bountyDraftCard(gd, c, kind));
 }
 
 /**
@@ -436,7 +473,8 @@ function applyDefault(m, ps, card) {
   const gd = m.gd;
   if (card.kind === 'bounty') {
     const src = (gd.choices.cards && Array.isArray(gd.choices.cards.bounty) ? gd.choices.cards.bounty : []).find((c) => c.effectId === card.id) || card;
-    m.addBounty(ps, src);
+    // the drafted duration and its text (bountyDraftCard: the first draft two battles, later drafts one)
+    m.addBounty(ps, drafted(src, card));
     return;
   }
   if (card.kind === 'item') {
