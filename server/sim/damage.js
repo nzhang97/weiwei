@@ -98,8 +98,23 @@ export function makeDamageInfo(d = {}) {
     // carries that ally, and the trait hook (professions.js installIncantation) heals it instead of the lowest-HP ally
     // in range. null = the ordinary target of the trait.
     traitAlly: d.traitAlly ?? null,
+    // 反击 / 反伤 (a damage instance dealt in response to being hit): see COUNTER_TAGS and dealDamage
+    counter: isCounterInput(d),
   };
 }
+
+/**
+ * Tags that mark a damage instance as a 反击 / 反伤 (counter-attack or reflected damage): 泡泡 / 灰毫 / 年 … `counter`,
+ * 玛恩纳 `reflect`, “碎铳之簧” `springCounter`. Engine rule (the fork owner's call): a counter never triggers another
+ * counter — a counter dealt while the engine is resolving a counter is dropped (dealDamage), so two units that both
+ * strike back can no longer bounce damage until the 32-hook guard trips.
+ */
+export const COUNTER_TAGS = Object.freeze(new Set(['counter', 'reflect', 'springCounter']));
+function isCounterInput(d) {
+  return !!(d && (d.counter || d.reflect || (Array.isArray(d.tags) && d.tags.some((t) => COUNTER_TAGS.has(t)))));
+}
+/** Whether `dmg` (a DamageInfo or its input) is a 反击 / 反伤 instance. */
+export const isCounterDamage = (dmg) => !!dmg && (dmg.counter === true || isCounterInput(dmg));
 
 /**
  * DamageInfo of the official `periodic_damage` template — 源石溶剂 (PRTS 盟约记录: "受到60真实伤害", 修正 "并非流失", 备注
@@ -324,6 +339,18 @@ function peekStats(unit) {
 export function dealDamage(battle, source, target, dmgIn) {
   if (!target || !target.alive || target.removed || target.hidden || !target.deployed) return 0;
   const dmg = dmgIn && dmgIn._norm ? dmgIn : makeDamageInfo(dmgIn);
+  // 反击不会触发反击: a counter raised by the hooks of a counter being resolved is dropped (COUNTER_TAGS)
+  const stack = (battle._dmgStack ||= []);
+  if (dmg.counter && stack.length && stack[stack.length - 1].counter) return 0;
+  stack.push(dmg);
+  try {
+    return dealDamageInner(battle, source, target, dmg);
+  } finally {
+    stack.pop();
+  }
+}
+
+function dealDamageInner(battle, source, target, dmg) {
   if (dmg.type === 'element') return applyElement(battle, source, target, dmg);
   // 无来源 (dmg.sourceless, element bursts): hooks see no source — nothing keyed on "damage dealt by X" (ATK-up vs a
   // tag, 伤害提升 items / bonds / modules, reflect, "受到来自…的伤害") can recognise it; `credit` names the unit that still
