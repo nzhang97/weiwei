@@ -387,3 +387,23 @@ off), the "layered" core valuation (coreLayerWeight 0.9, coreLayerCap 150, coreL
 The exclusivity knob halves shared cores but does not change wins, survival or layers; the layer valuation changes
 nothing. Neither is adopted (knob kept, off). Core tier 2 by R7 stays rare (0.18 of 3 AIs a game): the bottleneck is
 acquiring the members, not choosing the core.
+
+
+## 2026-10-13 · draw optimisation OFF: band temperature, level curve, 夕 画卷 timing (seeds 310001–, paired)
+
+From this study on, training runs with 抽卡优化 off (tools/airun.mjs / train-ai.mjs default; `--drawOpt on` restores it).
+3 AI + idle teammate, ABYSS. The V3 team win falls from 21.5% (draw optimisation on, previous study) to **5.6%**.
+
+| arm (n) | team win | rounds passed | AIs alive R13 | AIs tier-2 core R9 | note |
+|---|---|---|---|---|---|
+| base (480) | 5.6% | 12.21 | 1.48 | 0.41 | |
+| bandTemperature 6 (480) | 5.2% (p=0.89) | 11.81 (p<0.001) | 1.20 | 0.40 | 39 bands drawn vs 26 |
+| bandTemperature 12 (480) | 3.8% (p=0.20) | 11.60 (p<0.001) | 1.22 | 0.36 | 40 bands |
+| human level curve (480) | 5.6% | 12.22 | 1.48 | 0.41 | 1/1 discordant games: funds, not the target curve, bind the level-ups |
+| forced 夕, 画卷 at once (320) | 4.7% | 12.20 | 1.48 | 0.40 | |
+| forced 夕, scrollTiming deadline 9 (320) | 6.2% (p=0.46) | 12.12 | 1.51 | 0.40 | |
+| forced 夕, scrollTiming deadline 6 (320) | 4.7% | 12.21 | 1.42 | 0.43 | |
+
+Higher temperature explores more strategies but costs ~0.4–0.6 rounds; not adopted (per-band outcomes for further study:
+v025_band_outcomes_drawopt_off.csv). `scrollTiming` (bot.js scrollTarget, default off) is directionally positive at
+deadline 9 but not significant. The level curve needs a funds plan, not a new target table.

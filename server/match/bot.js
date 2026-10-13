@@ -2617,6 +2617,30 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   return order.find(free) || null;
 }
 
+/**
+ * 画卷 timing (botPolicy.scrollTiming): the [tileKey, piece] worth copying now, or null to keep the scroll. Worth it: a
+ * copy that completes a three-copy promotion (tier ≥ scrollMergeTier, default 2), or an elite of tier ≥ max(2, shop
+ * level − 1) (夕's 墨色真颜: the same-name pair gets +30 % ATK); from round scrollDeadline (default 9) the best of the
+ * deployed operators by tier, elite status and promotion.
+ */
+function scrollTarget(m, ps, ctx, P) {
+  const gd = ps?.gd || m.gd;
+  const mergeTier = P.scrollMergeTier ?? 2, deadline = P.scrollDeadline ?? 9;
+  const eliteTier = Math.max(2, (ps.shop?.level || 1) - 1);
+  const normals = new Map();
+  for (const p of ps.allChess()) if (!chessRec(m, p.id, ps)?.isGolden) normals.set(gd.baseIdOf(p.id), (normals.get(gd.baseIdOf(p.id)) || 0) + 1);
+  const cands = [...ps.board.entries()].filter(([, p]) => p.kind === 'chess').map(([k, p]) => {
+    const rec = chessRec(m, p.id, ps) || {};
+    const tier = rec.tier || gd.tierOf(gd.baseIdOf(p.id)) || 1;
+    const promotes = !rec.isGolden && (normals.get(gd.baseIdOf(p.id)) || 0) === 2;
+    const ok = (promotes && tier >= mergeTier) || (rec.isGolden && tier >= eliteTier);
+    return { k, p, ok, v: tier * 10 + (rec.isGolden ? 12 : 0) + (promotes ? 15 : 0) + pieceValue(m, ps, p, ctx) * 0.01 };
+  }).sort((a, b) => b.v - a.v || a.p.uid - b.p.uid);
+  // never die holding it: at low LP (scrollPanicLp, default 8) the best copy now
+  const pick = cands.find((c) => c.ok) || (m.round >= deadline || ps.lp <= (P.scrollPanicLp ?? 8) ? cands[0] : null);
+  return pick ? [pick.k, pick.p] : null;
+}
+
 /** 教鞭 / “神秘顾客”: an Art that adds a bounty to the own next battle (trap_create_self_choice). */
 const isBountyArt = (gd, itemId) => { const rec = gd.item(itemId); return !!rec && Array.isArray(rec.buffs) && rec.buffs.some((b) => b && b.key === 'trap_create_self_choice'); };
 
@@ -2631,7 +2655,17 @@ function useArt(m, ps, item, ctx) {
   const keys = (rec && Array.isArray(rec.buffs) ? rec.buffs : []).map((b) => b && b.key);
   if (keys.includes('trap_copy_front_char')) {
     if (freeSlot(ps.hand) < 0) return;
-    const best = [...ps.board.entries()].filter(([, p]) => p.kind === 'chess').sort((a, b) => pieceValue(m, ps, b[1], ctx) - pieceValue(m, ps, a[1], ctx) || a[1].uid - b[1].uid)[0];
+    const P = pol(m);
+    let best;
+    if (P.scrollTiming) {
+      // botPolicy.scrollTiming (夕 画卷): hold the scroll until the copy is worth it — an elite of tier ≥ scrollEliteTier
+      // (夕's 墨色真颜: the same-name pair gets +30 % ATK), a third copy that promotes a pair of tier ≥ scrollMergeTier,
+      // or the deadline round (scrollDeadline, default 10) on the most valuable operator.
+      best = scrollTarget(m, ps, ctx, P);
+      if (!best) return; // kept
+    } else {
+      best = [...ps.board.entries()].filter(([, p]) => p.kind === 'chess').sort((a, b) => pieceValue(m, ps, b[1], ctx) - pieceValue(m, ps, a[1], ctx) || a[1].uid - b[1].uid)[0];
+    }
     if (!best) return;
     const [r, c] = parseKey(best[0]);
     tryDo(() => ps.useArt(item.uid, r, c));

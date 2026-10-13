@@ -3,9 +3,10 @@
 // 3 AI + idle human seat: --blank <seat> [--blankLp 25]. Runs on upstream trees too (no botPolicy.js: upstream's AI).
 // Usage: node tools/airun.mjs --seeds 1000,1001,... | --from A --count N  [--difficulty ABYSS] [--policy file.json]
 //        [--rehearsal 3] [--out file.jsonl]
+// --drawOpt on: 抽卡优化 on (default OFF for training since 2026-10-13, the user's call).
 // --policy: JSON object of overrides. Keys under "abyss" (or "byDifficulty") merge into the difficulty preset; other
-// top-level keys merge into the policy root. Room options match the AI-AUDIT protocol (draw optimisation on,
-// all buffs / nerfs / free picks off).
+// top-level keys merge into the policy root. Room options: draw optimisation off unless --drawOpt on
+// (the room-option buffs / nerfs / free picks no longer exist in v0.2.5).
 import { Match } from '../server/match/Match.js';
 import { VirtualScheduler } from '../server/match/scheduler.js';
 import { getData } from '../server/data.js';
@@ -116,7 +117,7 @@ function runOne(seed) {
   let summary = null;
   const m = new Match({
     roomCode: 'RUN', mode: 'coop', difficulty, seats, seed, data, log, scheduler: sched, battleContent: 'full',
-    botRehearsal: rehearsal, botPolicy: buildPolicy(seed), send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
+    botRehearsal: rehearsal, botPolicy: buildPolicy(seed), drawOptimization: opt.drawOpt === 'on', send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
   });
   const rounds = [];
   let last = '';

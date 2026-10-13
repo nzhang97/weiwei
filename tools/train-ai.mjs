@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Four AI only; legal game resources, full combat, draw optimization on.
+// Four AI only; legal game resources, full combat, draw optimization off (--drawOpt on to enable).
 import fs from 'node:fs';
 import {BOT_POLICY} from '../server/match/botPolicy.js';
 import {Match} from '../server/match/Match.js';
@@ -14,7 +14,7 @@ const data=getData({log:{info(){},warn(){},error(){}}});
 const results=[];
 for(const difficulty of (opt.difficulty || 'HARD,ABYSS').split(',')) for(let seed=Number(opt.seed || 3101);seed<Number(opt.seed || 3101)+Number(opt.seeds || 2);seed++){
  const scheduler=new VirtualScheduler(),errors=[],rounds=[];let summary;let bossRehearsals=0;
- const m=new Match({mode:'coop',difficulty,seed,data,scheduler,botPolicy:policy,drawOptimization:true,aiOperatorBuff:false,humanOperatorBuff:false,aiRound34Nerf:false,freeOperatorPick:false,botRehearsal:3,
+ const m=new Match({mode:'coop',difficulty,seed,data,scheduler,botPolicy:policy,drawOptimization:opt.drawOpt==='on',botRehearsal:3,
   seats:Array.from({length:4},(_,seat)=>({seat,playerId:`ai_${seat}`,name:`AI${seat}`,isBot:true,connected:true})),
   log:{info(){},warn:(...x)=>{const message=x.join(' ');if(/rehearsal failed/.test(message))errors.push(message);},error:(...x)=>errors.push(x.join(' '))},send:()=>true,broadcast(){},onEnd:s=>summary=s});
  const buildBattle=m.newBattle.bind(m);m.newBattle=opts=>{if(opts.fieldId?.startsWith('boss-rehearse:'))bossRehearsals++;return buildBattle(opts);};
