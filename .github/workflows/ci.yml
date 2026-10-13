@@ -1,8 +1,8 @@
 name: CI
 
+# Private fork: run only on demand (Actions → CI → Run workflow). push / pull_request triggers removed so pushes do not
+# consume the account's Actions minutes; tests run locally and on the compute hosts instead.
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 concurrency:
