@@ -369,3 +369,21 @@ V3 决策层（botPolicy.js / botStrategy.js / botTeam.js / botBoss.js 与 bot.j
 - 运行时间：3 AI + 白板 ABYSS 一局约 45–140 s（上游 AI 约 17–40 s），主要在 V3 的多次 arrange / 排练。
 
 验证状态：移植后只做了 6 局冒烟（3 AI + 白板，ABYSS，种子 98001–98006，无错误）；胜率配对比较尚未进行。
+
+
+## 2026-10-13 · v0.2.5 core study (3 AI + idle teammate, ABYSS, seeds 300001–300480, paired)
+
+Prompted by the first v0.2.5 human log (VDTG): two AIs shared the 精准 core and the AI cores stayed far below the human's
+layers. Arms (botPolicy ABYSS overrides): `teammateCoreExclusive: 40` (new knob in botStrategy.js corePlan, default 0 =
+off), the "layered" core valuation (coreLayerWeight 0.9, coreLayerCap 150, coreLayerValueMul 2.4), and both.
+
+| arm | team win | rounds passed | AIs alive at R13 | AIs with a tier-2 core R7 / R9 | shared AI core R9 | mean AI core layers R13 |
+|---|---|---|---|---|---|---|
+| base (V3) | 21.5% | 13.04 | 2.23 | 0.18 / 0.95 | 37% | 132 |
+| exclusive | 20.2% (p=0.45) | 13.02 | 2.24 | 0.17 / 0.88 | 17% (p<0.001) | 127 |
+| layered | 19.8% (p=0.45) | 13.01 | 2.28 | 0.16 / 0.93 | 38% | 136 |
+| both | 20.6% (p=0.76) | 13.03 | 2.27 | 0.18 / 0.94 | 21% (p<0.001) | 132 |
+
+The exclusivity knob halves shared cores but does not change wins, survival or layers; the layer valuation changes
+nothing. Neither is adopted (knob kept, off). Core tier 2 by R7 stays rare (0.18 of 3 AIs a game): the bottleneck is
+acquiring the members, not choosing the core.

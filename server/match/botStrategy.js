@@ -49,6 +49,23 @@ export function publicCoreCompetition(m, ps, id) {
 /** Plan a reachable core, keeping the opening strategy and committed layers together.
  * Count distinct operators, not remaining copies. Equipment membership follows the real bond rules.
  */
+/**
+ * botPolicy.teammateCoreExclusive (weight, default 0 = off): a core an AI teammate already pursues with more distinct
+ * members (ties: the lower seat keeps it) costs that weight, at any stage — two AIs no longer split one core's pool
+ * (human log VDTG: two AIs both on 精准). Humans' cores are not claimed.
+ */
+function teammateCoreClaim(m, ps, id, count) {
+  const w = (m.botPolicy || BOT_POLICY).teammateCoreExclusive || 0;
+  if (!w) return 0;
+  for (const q of m.order) {
+    if (q === ps || !q.isBot || q.alive === false || q.left) continue;
+    const c = q._botCore;
+    if (!c || c.id !== id) continue;
+    if (c.count > count || (c.count === count && q.seat < ps.seat)) return w;
+  }
+  return 0;
+}
+
 export function corePlan(m, ps) {
   const owned = new Map(), all = ps.allChess();
   for (const p of all) for (const id of pieceBonds(m.gd, p)) {
@@ -83,7 +100,8 @@ export function corePlan(m, ps) {
       + (targets.includes(id) ? 80 : 0) + (id === previous && count >= first ? 16 : 0)
       + (target === upper ? 8 : 0) + access + relayCoreValue(m, ps, id, count, first, bandBonds)
       + ((m.botPolicy || BOT_POLICY).corePreference?.[id] ?? 0)
-      - (count < first ? publicCoreCompetition(m, ps, id) : 0);
+      - (count < first ? publicCoreCompetition(m, ps, id) : 0)
+      - teammateCoreClaim(m, ps, id, count);
     if (!best || score > best.score) best = { id, count, target, reachable, first, finishLevel, score };
   }
   ps._botCore = best;
