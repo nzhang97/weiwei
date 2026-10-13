@@ -3,6 +3,7 @@
 // 3 AI + idle human seat: --blank <seat> [--blankLp 25]. Runs on upstream trees too (no botPolicy.js: upstream's AI).
 // Usage: node tools/airun.mjs --seeds 1000,1001,... | --from A --count N  [--difficulty ABYSS] [--policy file.json]
 //        [--rehearsal 3] [--out file.jsonl]
+// --solo: one AI alone (独立模拟, mode_single_<difficulty>); co-op presets (byDifficulty) do not apply there.
 // --drawOpt on: 抽卡优化 on (default OFF for training since 2026-10-13, the user's call).
 // --policy: JSON object of overrides. Keys under "abyss" (or "byDifficulty") merge into the difficulty preset; other
 // top-level keys merge into the policy root. Room options: draw optimisation off unless --drawOpt on
@@ -111,12 +112,13 @@ function runOne(seed) {
   // --blank <seat>: a connected human seat that never acts (白板队友); every phase runs on its multi-human timers so the
   // match never waits on it (timeouts: default strategy, prep deadline); --blankLp sets its LP after the strategy draft
   const blank = opt.blank != null && opt.blank !== true ? Number(opt.blank) : null;
-  const seats = [0, 1, 2, 3].map((i) => (i === blank
+  const solo = opt.solo != null && opt.solo !== 'off';
+  const seats = (solo ? [0] : [0, 1, 2, 3]).map((i) => (i === blank
     ? { seat: i, playerId: `hu_${i}`, name: `白板-${i + 1}`, isBot: false, connected: true }
     : { seat: i, playerId: `ai_${i}`, name: `AI-${i + 1}`, isBot: true, connected: true }));
   let summary = null;
   const m = new Match({
-    roomCode: 'RUN', mode: 'coop', difficulty, seats, seed, data, log, scheduler: sched, battleContent: 'full',
+    roomCode: 'RUN', mode: solo ? 'solo' : 'coop', difficulty, seats, seed, data, log, scheduler: sched, battleContent: 'full',
     botRehearsal: rehearsal, botPolicy: buildPolicy(seed), drawOptimization: opt.drawOpt === 'on', send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
   });
   const rounds = [];

@@ -407,3 +407,14 @@ From this study on, training runs with 抽卡优化 off (tools/airun.mjs / train
 Higher temperature explores more strategies but costs ~0.4–0.6 rounds; not adopted (per-band outcomes for further study:
 v025_band_outcomes_drawopt_off.csv). `scrollTiming` (bot.js scrollTarget, default off) is directionally positive at
 deadline 9 but not significant. The level curve needs a funds plan, not a new target table.
+
+
+## 2026-10-13 · solo ABYSS (独立模拟 终极) screening, draw optimisation off (seeds 410001–410030)
+
+`tools/airun.mjs --solo` runs one AI alone (mode_single_abyss; Match applies no byDifficulty preset in solo). Goal: the
+隐秘核心 clear (R14 boss won, Σ active layers > 350 at the R14 prep end, LP > 1, then the hidden boss). Each of the 40
+bands forced, 10 policies × 30 seeds (12000 games): R14 win 1.0% with the V3 default, hidden core reached 0.8%,
+cleared 15 / 12000. The co-op ABYSS preset applied at the root in solo is clearly better than the bare default: rounds
+passed +0.45 (paired p=3e-26), R14 wins 26 vs 11 discordant (p=0.02), R14 layers +18 (p<0.001). Core preferences (+40
+for one core bond) add 0–0.3 rounds per band — within noise at 30 seeds; validated on fresh seeds next. The layer sum
+(median ≈130–150 at R14) is far below the 350 the hidden core needs.
