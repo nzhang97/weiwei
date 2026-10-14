@@ -100,7 +100,7 @@ import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shar
 import { BOT_POLICY } from './botPolicy.js';
 import { createBossRehearsalSteps } from './botBoss.js';
 import { relayCarryValue, relayUpgradeWanted, createRelayRehearsal, relayDefenseValue } from './botTeam.js';
-import { bandScore, hiddenDrive, corePlan, coreReserveValue, coreUpgradeWanted, economyRecruitValue, garrisons, lineupState, layerValue, traitValue, recurringValue, combatBondValue, combatRecord, benchValue, refreshValue as strategyRefreshValue, bestEquipmentTarget } from './botStrategy.js';
+import { bandScore, hiddenDrive, gainCountValue, corePlan, coreReserveValue, coreUpgradeWanted, economyRecruitValue, garrisons, lineupState, layerValue, traitValue, recurringValue, combatBondValue, combatRecord, benchValue, refreshValue as strategyRefreshValue, bestEquipmentTarget } from './botStrategy.js';
 
 /** The match's AI policy (Match.botPolicy); a stub match without one uses the defaults. */
 const pol = (m) => m.botPolicy || BOT_POLICY;
@@ -635,6 +635,8 @@ function lineupScore(m, ps, set, ctx, projected = null) {
   let v = 0;
   const projection = pol(m).projectedUnitPower ? { bonds, rosterSize: set.length, key: `${set.length}|${Object.entries(bonds).filter(([,b]) => b.active).map(([id,b]) => `${id}:${b.count}:${b.tier}:${b.layers}`).join('|')}` } : null;
   const recCap = pol(m).battleLayerYield?.recurringCap ?? 10;
+  const pkg = pol(m).coreChessBonus?.[ctx.focus];
+  if (pkg) for (const p of set) v += (pkg[gd.baseIdOf(p.id)] || 0) * (pol(m).coreChessLineup ?? 0.5);
   for (const p of set) v += unitBase(m, ps, p, ctx, projection) + Math.min(recCap, recurringValue(m, ps, p, { board, hand, bonds }));
   for (const p of hand) if (p.kind === 'chess') v += recurringValue(m, ps, p, { board, hand, bonds, bench: true });
   for (const [id, b] of Object.entries(bonds)) {
@@ -808,6 +810,8 @@ function buyScore(m, ps, id, ctx) {
   // band playbooks (botPolicy.bandPolicy): chessBonus per base; stackRefreshValue — a chess that adds layers on the
   // round's first refresh (拉普兰德 叙拉古 +4/+8, works from the bench) is worth those layers for every remaining round
   s += P.chessBonus?.[base] || 0;
+  // botPolicy.coreChessBonus { [core]: { [base]: bonus } }: a core's key operators while it is the focus (谢拉格 freeze package)
+  s += P.coreChessBonus?.[ctx.focus]?.[base] || 0;
   if (P.stackRefreshValue) s += refreshStackValue(m, ps, id) * P.stackRefreshValue;
   // role needs
   if (isBlocker(c) && ctx.roles.blockers < 2) s += 10;
@@ -1227,6 +1231,17 @@ export function formationGrowth(m, ps, entries, projected = null) {
   let v = 0;
   for (const { piece, r, c, dir } of entries) {
     for (const g of garrisons(m, piece.id)) {
+      // botPolicy.grantPosition (layers per battle, default off): an IN_BATTLE ADD_BOND that gives the operator in front a
+      // layer trait (凛御银灰 → the 谢拉格 operator in front: 60% per freeze in range) needs a member of check_bond_id there
+      if (pol(m).grantPosition && g.eventType === 'IN_BATTLE' && g.effectKey === 'ADD_BOND' && !/所有|同一行/.test(g.desc || '')) {
+        const need = g.bbStr?.check_bond_id;
+        const [fr, fc] = rotateOffset(0, 1, dir);
+        const front = entries.find((e) => e.r === r + fr && e.c === c + fc && e.piece.kind === 'chess');
+        if (front && (!need || pieceBonds(m.gd, front.piece).includes(need)) && (!need || bonds[need]?.active)) {
+          v += (pol(m).positionLayerWeight ?? 1) * layerValue(m, ps, need || 'kjeragShip', pol(m).grantPosition, bonds);
+        }
+        continue;
+      }
       if (!['SERVER_PREP_FIN', 'SERVER_PREP_START'].includes(g.eventType)) continue;
       if (pol(m).projectedFormation && g.eventType === 'SERVER_PREP_START' && m.round >= (ps?.gd || m.gd).bossRound) continue;
       const b = g.bb || {}, s = g.bbStr || {};
@@ -1645,6 +1660,31 @@ function context(m, ps) {
   let pairs = 0;
   for (const [b, k] of copies) if (k + 1 >= mergeNeed(m, b)) pairs++;
   return { ps, owned, focus: plan.focus, second: plan.second, keep: keeperBases(m, ps, plan), copies, pairs, roles: roles(m, ps), fly: model.flyTotal, model, hiddenDrive: hiddenDrive(m, ps) };
+}
+
+/**
+ * botPolicy.gainChurn: buy a chess nothing else wants and sell it at once — one more 获得 for the prep-end
+ * "本回合每获得过1名干员" traits (gainCountValue) and its own 获得时 layer traits (惊蛰, 录武官, 星熊 … fire on every
+ * acquisition). Never a copy towards a merge, never below the funds reserve. true when it churned one.
+ */
+function churnOnce(m, ps, ctx, P, reserve, churnV) {
+  const gd = ps?.gd || m.gd;
+  let ci = -1, cs = -Infinity;
+  ps.shop.slots.forEach((s, i) => {
+    if (!s || s.sold || s.kind !== 'chess' || freeSlot(ps.hand) < 0) return;
+    const price = ps.priceOf(s), base = gd.baseIdOf(s.id);
+    if (price > ps.funds || ps.funds - price < reserve || ps.completesChessMerge(s.id) || ctx.copies.get(base)) return;
+    if (m.pool.has(base) && m.pool.left(base) < 1) return;
+    const t = (churnV + traitValue(m, ps, { id: s.id, kind: 'chess', items: [] }, ['SERVER_GAIN', 'SERVER_CHESS_SOLD'])) * 2
+      - Math.max(0, price - gd.sellPrice(s.id)) * 2.5;
+    if (t > cs) { cs = t; ci = i; }
+  });
+  if (!(ci >= 0 && cs >= (P.gainChurn.min ?? 4))) return false;
+  const id = ps.shop.slots[ci].id, before = new Set(ps.allChess().map((p) => p.uid));
+  if (!tryDo(() => ps.buy(ci))) return false;
+  const bought = ps.allChess().find((p) => p.id === id && !before.has(p.uid) && ps.find(p.uid)?.area !== 'board');
+  if (bought && !gd.isGolden(bought.id)) tryDo(() => ps.sell(bought.uid));
+  return true;
 }
 
 /** Normal copies owned per base (board, hand, temp). */
@@ -2275,7 +2315,9 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
     const refreshCost = ps.shop.freeRefreshes > 0 ? 0 : gd.refreshPrice;
     const refreshRoom = maxRefreshes > 0 && (refreshCost === 0 ? freeRefreshes < Math.max(4, maxRefreshes * 2) : paidRefreshes < maxRefreshes);
     const funded = ps.funds >= refreshCost + (refreshCost > 0 ? Math.max(ps.shop.level >= 3 ? 1 : minPrice, reserve) : 0);
-    const growth = strategyRefreshValue(m, ps);
+    // botPolicy.gainChurn: every chess a reroll shows can be bought and sold again for the 本回合每获得 layers
+    const churnV = P.gainChurn ? gainCountValue(m, ps) * (P.gainChurn.weight ?? 1) : 0;
+    const growth = strategyRefreshValue(m, ps) + (churnV > 0 ? churnV * (P.gainChurn.perRefresh ?? 2) : 0);
     const canRefresh = refreshRoom && (refreshCost === 0 || funded || (growth >= refreshCost * 1.5 && ps.funds - refreshCost >= reserve && ps.funds >= refreshCost));
     // a full board buys only what improves it (merge progress, a lineup upgrade), and only when it is worth more than
     // the refreshes its price would pay for (each may show the third copy of a held pair, refreshValue)
@@ -2302,6 +2344,7 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
       }
       continue;
     }
+    if (P.gainChurn && !P.gainChurn.late && !fillOnly && churnOnce(m, ps, ctx, P, reserve, churnV)) continue;
     if (P.econSweep && !fillOnly) {
       // a money item that beats its price is bought before any reroll; when this reroll would leave nothing to buy,
       // any money move beats losing the coins
@@ -2323,6 +2366,8 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
       if (refreshCost === 0) freeRefreshes++; else paidRefreshes++;
       continue;
     }
+    // botPolicy.gainChurn.late: churn only the funds nothing else (buy, reroll) wanted this prep
+    if (P.gainChurn?.late && !fillOnly && churnOnce(m, ps, ctx, P, reserve, churnV)) continue;
     return;
   }
 }

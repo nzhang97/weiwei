@@ -484,3 +484,17 @@ layers +38; ×2 / cap 80 overshoots. Validation seeds 470001–470030 (3 arms ×
 layers +28 (p<1e-4); R14 wins 24:35 and hidden reached 15:23 (n.s., opposite to the screening's 19:8 / 17:2 — pooled
 43:43 / 32:25). **Adopted** for the 350 target: SOLO_POLICY.ABYSS.battleLayerYield = { scale 1, cap 40, recurringCap 40,
 buyCap 40 }.
+
+
+## Solo ABYSS: 谢拉格 freeze package and 炎 gain churn (2026-10-14, the user's playbooks)
+
+Knobs (bot.js / botStrategy.js): `coreChessBonus { [core]: { [base]: bonus } }` (buy + ½ in lineupScore while the core is
+the focus), `grantPosition` (formationGrowth credit for an IN_BATTLE ADD_BOND that grants the operator in front a layer
+trait — 凛御银灰), `gainChurn { weight, min, perRefresh, late }` (churnOnce: buy-and-sell for 本回合每获得 prep-end traits
+and the chess's own 获得时 layer traits; gainCountValue). Seeds 480001–480015 and 490001–490015, 40 strategies, 600
+paired games per arm; forced cores via corePreference +200 + extraCoreTargets.
+- 谢拉格 forced: package → 谢拉格 layers +6, R14 reached 31:14 (p=0.016), Σ layers unchanged; the AI fields ≈2 谢拉格
+  operators at R12 even when forced, so the 6-member wind (the freeze engine) arrives late. grantPosition: no effect.
+- 炎 forced: early churn → 炎 layers 27 → 42 but R14 reached 33:65, R14 wins 2:12; late churn (leftover funds only) ≈ no-op.
+- Natural core choice: churn (+ package) R14 wins 42:17 (p=0.002), Σ > 350 73:44 (p=0.009), rounds unchanged; the
+  package alone: no effect. **Adopted**: SOLO_POLICY.ABYSS.gainChurn = { weight 1, min 4, perRefresh 2 }.

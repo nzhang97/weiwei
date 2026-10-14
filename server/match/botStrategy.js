@@ -371,6 +371,26 @@ export function battleLayerValue(m, ps, piece, { bonds = ps.bonds, bench = false
   return Math.min(8, value);
 }
 
+/**
+ * botPolicy.gainChurn: layers one more 获得 (a bought chess, even one sold again at once) adds this prep through the
+ * owned "本回合每获得过1名干员" prep-end traits (小满, 夕, …: SERVER_ADD_BOND_METHOD round_gain_char), by layerValue.
+ * A trait whose text needs its bond active counts only while it is. Hand pieces count unless the trait needs the board.
+ */
+export function gainCountValue(m, ps, bonds = ps.bonds) {
+  let v = 0;
+  const pieces = [...ps.board.values(), ...ps.hand].filter((p) => p && p.kind === 'chess');
+  const onBoard = new Set([...ps.board.values()].filter(Boolean).map((p) => p.uid));
+  for (const p of pieces) {
+    for (const g of garrisons(m, p.id)) {
+      if (g.eventType !== 'SERVER_PREP_FIN' || g.effectKey !== 'SERVER_ADD_BOND_METHOD' || g.bbStr?.add_method !== 'round_gain_char') continue;
+      if (!onBoard.has(p.uid) && (g.bbStr?.conditionkey === 'character_target_inboard' || g.bbStr?.conditionkey === 'character_same_row')) continue;
+      const multi = Number(g.bb?.multi) || 1;
+      for (const id of list(g.bbStr.bond)) if (!requireActiveOf(g) || bonds[id]?.active) v += layerValue(m, ps, id, multi, bonds);
+    }
+  }
+  return v;
+}
+
 export function recurringValue(m, ps, p, state = {}) {
   const now = traitValue(m, ps, p, ['SERVER_PREP_FIN'], state);
   const next = future(m) ? traitValue(m, ps, p, ['SERVER_PREP_START'], state) : 0;
