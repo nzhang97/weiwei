@@ -185,6 +185,19 @@ export function bandScore(m, ps, id) {
   return score + bias + relayBandValue(m, ps, id, bandBonds(m, id), bandBonds);
 }
 
+/**
+ * botPolicy.hiddenLayerDrive { from, mul, addonAsCore, finalBonus } (default off): the solo 隐秘核心 needs Σ active layers
+ * > hiddenCore.single at the R14 prep end. While the own Σ is below it, from round `from` every layer on an active bond
+ * is worth `mul` × (add-ons valued like a core when addonAsCore: each one counts the same toward the threshold); at the
+ * R14 prep a lineup over the threshold scores `finalBonus` more (lineupScore, bot.js). Solo only (co-op sums the team).
+ */
+export function hiddenDrive(m, ps) {
+  const D = (m.botPolicy || BOT_POLICY).hiddenLayerDrive;
+  const gd = ps?.gd || m.gd;
+  if (!D || !m.isSolo || !gd.hiddenRound || !gd.hiddenCore?.difficulties?.includes(m.difficulty)) return null;
+  return { ...D, threshold: gd.hiddenCore.single };
+}
+
 /** Value only layers that can matter to this lineup; unactivated layers persist, but are speculative. */
 export function layerValue(m, ps, id, amount, bonds = ps.bonds) {
   if (!(ps?.gd || m.gd).bond(id) || (ps?.gd || m.gd).modeInactiveBonds.has(id)) return 0;
@@ -193,8 +206,11 @@ export function layerValue(m, ps, id, amount, bonds = ps.bonds) {
   if ((m.botPolicy || BOT_POLICY).layerMilestones) n = usefulLayerAmount(m, ps, id, n);
   const state = bonds[id];
   const weight = state?.active ? 1 : state?.count > 0 ? 0.25 : 0;
-  const priority = (ps?.gd || m.gd).bond(id).isCore ? (ps._botCore?.id === id ? 1.3 : 1) * (m.botPolicy || BOT_POLICY).coreLayerValueMul : 0.8;
-  return n * weight * priority * ((ps?.gd || m.gd).bond(id).isCore ? phaseLayerWeights(m).core : phaseLayerWeights(m).addon) * (0.35 + Math.min(8, future(m)) * 0.035);
+  const drive = hiddenDrive(m, ps);
+  const driving = !!drive && m.round >= (drive.from ?? 9) && m.round <= (ps?.gd || m.gd).bossRound && typeof ps.activatedLayers === 'function' && ps.activatedLayers() <= drive.threshold;
+  const asCore = (ps?.gd || m.gd).bond(id).isCore || (driving && drive.addonAsCore);
+  const priority = asCore ? (ps._botCore?.id === id ? 1.3 : 1) * (m.botPolicy || BOT_POLICY).coreLayerValueMul : 0.8;
+  return n * weight * priority * (driving ? drive.mul ?? 1 : 1) * (asCore ? phaseLayerWeights(m).core : phaseLayerWeights(m).addon) * (0.35 + Math.min(8, future(m)) * 0.035);
 }
 
 /** Probability layers stop helping at 100%; threshold credit is bounded and never invents grants. */

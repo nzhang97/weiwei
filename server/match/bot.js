@@ -100,7 +100,7 @@ import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shar
 import { BOT_POLICY } from './botPolicy.js';
 import { createBossRehearsalSteps } from './botBoss.js';
 import { relayCarryValue, relayUpgradeWanted, createRelayRehearsal, relayDefenseValue } from './botTeam.js';
-import { bandScore, corePlan, coreReserveValue, coreUpgradeWanted, economyRecruitValue, garrisons, lineupState, layerValue, traitValue, recurringValue, combatBondValue, combatRecord, benchValue, refreshValue as strategyRefreshValue, bestEquipmentTarget } from './botStrategy.js';
+import { bandScore, hiddenDrive, corePlan, coreReserveValue, coreUpgradeWanted, economyRecruitValue, garrisons, lineupState, layerValue, traitValue, recurringValue, combatBondValue, combatRecord, benchValue, refreshValue as strategyRefreshValue, bestEquipmentTarget } from './botStrategy.js';
 
 /** The match's AI policy (Match.botPolicy); a stub match without one uses the defaults. */
 const pol = (m) => m.botPolicy || BOT_POLICY;
@@ -663,6 +663,13 @@ function lineupScore(m, ps, set, ctx, projected = null) {
   if (ctx.fly > 0) v -= Math.max(0, Math.min(ctx.roles.antiAir, flyRatio > 0.45 ? 3 : 2) - air) * 13 * (pol(m).rolePenaltyWeight ?? 1);
   if (blockers >= 2 && ctx.roles.healers > 0 && healers === 0) v -= 10;
   v -= Math.max(0, healers - 2) * 10;
+  // botPolicy.hiddenLayerDrive.finalBonus: at the R14 prep a lineup whose Σ active layers clears the 隐秘核心 threshold
+  const drive = ctx.hiddenDrive;
+  if (drive?.finalBonus && m.round === gd.bossRound) {
+    let L = 0;
+    for (const b of Object.values(bonds)) if (b.active) L += b.layers || 0;
+    if (L > drive.threshold) v += drive.finalBonus;
+  }
   return v;
 }
 
@@ -1636,7 +1643,7 @@ function context(m, ps) {
   const copies = copyCounts(m, ps);
   let pairs = 0;
   for (const [b, k] of copies) if (k + 1 >= mergeNeed(m, b)) pairs++;
-  return { ps, owned, focus: plan.focus, second: plan.second, keep: keeperBases(m, ps, plan), copies, pairs, roles: roles(m, ps), fly: model.flyTotal, model };
+  return { ps, owned, focus: plan.focus, second: plan.second, keep: keeperBases(m, ps, plan), copies, pairs, roles: roles(m, ps), fly: model.flyTotal, model, hiddenDrive: hiddenDrive(m, ps) };
 }
 
 /** Normal copies owned per base (board, hand, temp). */

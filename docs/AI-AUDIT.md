@@ -443,3 +443,27 @@ Arms are paired by (strategy, seed) against `preset` (the co-op ABYSS table appl
 - The strategy pick in solo stays upstream's starting-LP draw (`bandScoring: false` in SOLO_POLICY): the studies forced the
   strategy, so the co-op band scoring was not evaluated for solo.
 - Per-strategy table (presetLayer arm): `solo_validation_presetLayer_by_band.csv` in the analysis artifacts.
+
+
+## Solo ABYSS: layer accumulation toward the 隐秘核心 threshold (2026-10-14, draw optimisation off)
+
+Layer sources (tools/airun.mjs now logs `lsrc` per player: onLayers by reason through R14, and `hls` = Σ active layers at
+the R14 prep end, the value hiddenEligible checks). Games that reached R14 gain ≈390 layers on average: operator traits
+(garrison) ≈54%, in-battle gains ≈41%, items + strategy effects < 5%; ≈53 sit on bonds inactive at the R14 prep end.
+
+New knob `botPolicy.hiddenLayerDrive { from, mul, addonAsCore, finalBonus }` (solo only; botStrategy.hiddenDrive /
+layerValue, bot.js lineupScore). Screening, seeds 430001–430030, 40 forced strategies × 5 arms (6000 games, 0 errors):
+
+| arm | Σ layers at R14 vs base (paired, both reached R14) | games over 350 | R14 wins | hidden reached |
+|---|---|---|---|---|
+| base (SOLO_POLICY) | — | 112 | 18 | 6 |
+| drive (from 9, ×1.8, add-ons as cores) | +16 (p<1e-4) | 124 | 18 | 6 |
+| final150 (R14 lineup over 350: +150) | +1 | 122 (McNemar 10:0, p=0.002) | 18 | 6 |
+| driveStrong (from 6, ×4) | +23 | 113 | 10 | 5 |
+| strongAll (×4 + final 300) | +25 | 127 | 10 | 5 |
+
+The ×4 drive buys layer-trait operators (trait layers +28) at the cost of combat (in-battle layers −5, R14 wins 18 → 10,
+p=0.18): not used. Validation of drive + final150 on fresh seeds 440001–440030 (2400 paired games, 0 errors):
+eligible (Σ > 350) 123 → 156 (McNemar 76:43, p=0.003), R14 layers +6.8 (p=0.0007), hidden reached 9 → 12 (n.s.),
+R14 wins 21 → 22, rounds +0.02 (n.s.). **Adopted** in `SOLO_POLICY.ABYSS.hiddenLayerDrive` = { from 9, mul 1.8,
+addonAsCore, finalBonus 150 }. The R14 boss fight (≈1.5–1.8% wins) remains the main limit on 隐秘核心 clears.

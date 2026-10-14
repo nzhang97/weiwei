@@ -128,6 +128,19 @@ function runOne(seed) {
   const t0 = Date.now();
   if (blank != null) m.loneHuman = false;
   let blankLpSet = blank == null || opt.blankLp == null;
+  // per-player layer gains by source (onLayers: 'battle' = settle's IN_BATTLE gains, else the prep-side reason), through R14
+  const lsrc = {};
+  const dispatch0 = m.dispatch.bind(m);
+  m.dispatch = (ps, ev, payload, ...rest) => {
+    if (ev === 'onLayers' && ps && payload && m.round <= (m.gd.bossRound || 14)) {
+      const o = (lsrc[ps.playerId] ??= {});
+      const k = String(payload.reason || 'other').split(':')[0];
+      o[k] = (o[k] || 0) + (payload.to - payload.from);
+      const bb = (o._bond ??= {});
+      bb[payload.bondId] = (bb[payload.bondId] || 0) + (payload.to - payload.from);
+    }
+    return dispatch0(ps, ev, payload, ...rest);
+  };
   m.start();
   sched.runUntil(() => {
     if (!blankLpSet && m.round >= 1 && m.phase !== 'BAND_DRAFT' && m.phase !== 'INFO_CHECK' && m.phase !== 'LOBBY') {
@@ -150,6 +163,7 @@ function runOne(seed) {
             k: res ? res.killed : null, t: res ? res.total : null,
             lk: res ? (res.leaked || []).filter((l) => l.counted !== false).length : null,
             perf: res ? res.perfect !== false : null, bonds, band: ps.bandId,
+            la: Math.round(Object.values(ps.layers || {}).reduce((s, v) => s + (v || 0), 0)),
             elites: ps.allChess ? ps.allChess().filter((c) => data.chess[c.id]?.isGolden).length : null,
             chess: ps.board ? [...ps.board.values()].filter((p) => p.kind === 'chess').map((p) => p.id) : [],
             tele: ps._tele?.[m.round] || null,
@@ -165,7 +179,7 @@ function runOne(seed) {
   }, { maxSteps: 5e6 });
   const res = {
     seed, difficulty, stage: m.stageId, boss: m.bossId, win: !!summary?.victory, rp: summary?.roundsPassed ?? null,
-    reason: summary?.reason ?? 'stuck', hidden: !!summary?.hiddenReached,
+    reason: summary?.reason ?? 'stuck', hidden: !!summary?.hiddenReached, hls: m.hiddenLayerSum ?? null, lsrc,
     players: (summary?.players || []).map((p) => ({ band: p.bandId, rp: p.roundsPassed, dmg: p.stats?.dmgDealt, kills: p.stats?.kills, merges: p.stats?.merges, gold: p.stats?.gold })),
     rounds, errors: errors.length + (m.errorCount || 0), simErrors: m.simErrors || 0, ms: Date.now() - t0,
   };

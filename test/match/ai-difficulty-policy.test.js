@@ -21,4 +21,6 @@ test('validated ABYSS co-op preset is isolated from HARD and explicit experiment
   m.dispose();
  }
  assert.equal(SOLO_POLICY.ABYSS.coreLayerWeight,0.9);
+ assert.deepEqual({...SOLO_POLICY.ABYSS.hiddenLayerDrive},{from:9,mul:1.8,addonAsCore:true,finalBonus:150});
+ assert.equal(BOT_POLICY.byDifficulty.ABYSS.hiddenLayerDrive,undefined,'co-op ABYSS unchanged');
 });
