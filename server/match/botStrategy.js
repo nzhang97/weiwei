@@ -1,6 +1,7 @@
 // Pure, bounded estimates for the bot's economy. Scores are heuristics, not simulated rewards:
 // never dispatch effects, take pool copies, or inspect another player's private hand/shop.
 import { BOT_POLICY } from './botPolicy.js';
+import { BATTLE_LAYER_YIELD } from './botLayerYield.js';
 import { relayBandValue, relayCoreValue } from './botTeam.js';
 import { BOND_LAYER_CAP } from '../../shared/constants.js';
 import { computeBonds, pieceBonds } from './bondsMeta.js';
@@ -340,6 +341,17 @@ export function traitValue(m, ps, piece, events, { board = ps.board, hand = ps.h
  */
 export function battleLayerValue(m, ps, piece, { bonds = ps.bonds, bench = false } = {}) {
   if (bench || !m.wave) return 0;
+  // botPolicy.battleLayerYield { scale, cap, recurringCap, buyCap } (default off): the measured per-battle yield
+  // (botLayerYield.js) replaces the conservative estimate for the operators it lists; layerValue weighs each bond
+  // (active 1, members only 0.25, none 0) and the drive / phase multipliers as for any other layer.
+  const Y = (m.botPolicy || BOT_POLICY).battleLayerYield;
+  const t = Y ? BATTLE_LAYER_YIELD[piece.id] : null;
+  if (t) {
+    if (m.round >= ((ps?.gd || m.gd).bossRound || 14)) return 0;
+    let v = 0;
+    for (const [id, a] of Object.entries(t)) v += layerValue(m, ps, id, a * (Y.scale ?? 1), bonds);
+    return Math.min(Y.cap ?? 8, v);
+  }
   const c = (ps?.gd || m.gd).chess(piece.id), enemies = (m.wave.spawns || []).reduce((n, s) => n + (s.count || 1), 0);
   let value = 0;
   for (const g of garrisons(m, piece.id)) {

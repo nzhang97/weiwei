@@ -107,6 +107,37 @@ function buildPolicy(seed) {
 const data = getData({ log: { warn() {}, error() {}, info() {} } });
 const out = opt.out ? fs.openSync(opt.out, 'a') : null;
 
+// --ledger on: per-player layer ledger — every layer that lands on a bond, by round and source. Prep side: PlayerState
+// addLayers (reason = the effect's source key, uid digits stripped); in battle: Battle.addLayers on real fields only
+// (rehearsal fields r: / boss-rehearse: / relay: excluded), keyed by reason and the source unit's defId. Diagnostics only.
+const LEDGER = opt.ledger === 'on';
+let LCUR = null;
+if (LEDGER) {
+  const norm = (s) => String(s || 'other').replace(/:\d+/g, '').replace(/#\d+/g, '');
+  const put = (pid, key, bondId, n) => {
+    if (!LCUR || !(n > 0) || !(LCUR.m.round <= (LCUR.m.gd.bossRound || 14))) return;
+    const L = (LCUR.led[pid] ??= { src: {}, byRound: {} });
+    const k = `${bondId}|${key}`;
+    L.src[k] = (L.src[k] || 0) + n;
+    const r = (L.byRound[LCUR.m.round] ??= {});
+    r[bondId] = (r[bondId] || 0) + n;
+  };
+  const add0 = PlayerState.prototype.addLayers;
+  PlayerState.prototype.addLayers = function (bondId, n, o = {}) {
+    const add = add0.call(this, bondId, n, o);
+    if (add > 0) put(this.playerId, `P:${norm(o.reason)}`, bondId, add);
+    return add;
+  };
+  const { Battle } = await import('../server/sim/Battle.js');
+  const badd0 = Battle.prototype.addLayers;
+  Battle.prototype.addLayers = function (playerId, bondId, n, reason = '', o = {}) {
+    const add = badd0.call(this, playerId, bondId, n, reason, o);
+    const f = String(this.fieldId || '');
+    if (add > 0 && !/^(r:|boss-rehearse:|relay:)/.test(f)) put(playerId, `B:${norm(reason)}:${o?.source?.defId || '-'}`, bondId, add);
+    return add;
+  };
+}
+
 function runOne(seed) {
   const sched = new VirtualScheduler();
   const errors = [];
@@ -130,6 +161,8 @@ function runOne(seed) {
   let blankLpSet = blank == null || opt.blankLp == null;
   // per-player layer gains by source (onLayers: 'battle' = settle's IN_BATTLE gains, else the prep-side reason), through R14
   const lsrc = {};
+  const led = {};
+  if (LEDGER) LCUR = { m, led };
   const dispatch0 = m.dispatch.bind(m);
   m.dispatch = (ps, ev, payload, ...rest) => {
     if (ev === 'onLayers' && ps && payload && m.round <= (m.gd.bossRound || 14)) {
@@ -164,6 +197,7 @@ function runOne(seed) {
             lk: res ? (res.leaked || []).filter((l) => l.counted !== false).length : null,
             perf: res ? res.perfect !== false : null, bonds, band: ps.bandId,
             la: Math.round(Object.values(ps.layers || {}).reduce((s, v) => s + (v || 0), 0)),
+            ...(LEDGER ? { bl: Object.fromEntries(Object.entries(ps.layers || {}).filter(([, v]) => v > 0).map(([id, v]) => [id, [Math.round(v), ps.bonds?.[id]?.active ? 1 : 0, ps.bonds?.[id]?.count || 0, ps.bonds?.[id]?.tier || 0]])) } : {}),
             elites: ps.allChess ? ps.allChess().filter((c) => data.chess[c.id]?.isGolden).length : null,
             chess: ps.board ? [...ps.board.values()].filter((p) => p.kind === 'chess').map((p) => p.id) : [],
             tele: ps._tele?.[m.round] || null,
@@ -179,7 +213,7 @@ function runOne(seed) {
   }, { maxSteps: 5e6 });
   const res = {
     seed, difficulty, stage: m.stageId, boss: m.bossId, win: !!summary?.victory, rp: summary?.roundsPassed ?? null,
-    reason: summary?.reason ?? 'stuck', hidden: !!summary?.hiddenReached, hls: m.hiddenLayerSum ?? null, lsrc,
+    reason: summary?.reason ?? 'stuck', hidden: !!summary?.hiddenReached, hls: m.hiddenLayerSum ?? null, lsrc, ...(LEDGER ? { led } : {}),
     players: (summary?.players || []).map((p) => ({ band: p.bandId, rp: p.roundsPassed, dmg: p.stats?.dmgDealt, kills: p.stats?.kills, merges: p.stats?.merges, gold: p.stats?.gold })),
     rounds, errors: errors.length + (m.errorCount || 0), simErrors: m.simErrors || 0, ms: Date.now() - t0,
   };

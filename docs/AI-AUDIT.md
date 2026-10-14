@@ -467,3 +467,20 @@ p=0.18): not used. Validation of drive + final150 on fresh seeds 440001–440030
 eligible (Σ > 350) 123 → 156 (McNemar 76:43, p=0.003), R14 layers +6.8 (p=0.0007), hidden reached 9 → 12 (n.s.),
 R14 wins 21 → 22, rounds +0.02 (n.s.). **Adopted** in `SOLO_POLICY.ABYSS.hiddenLayerDrive` = { from 9, mul 1.8,
 addonAsCore, finalBonus 150 }. The R14 boss fight (≈1.5–1.8% wins) remains the main limit on 隐秘核心 clears.
+
+
+## Solo ABYSS: layer engines and measured battle yield (2026-10-14, draw optimisation off)
+
+Layer ledger (airun `--ledger on`; 800 games, seeds 450001–450020): no passive layer growth — layers come from operator
+traits (in battle ≈125 / prep and on-gain ≈133 per R14 game), 助力 (≈28), items, strategies; ≈57 sit on bonds inactive
+at R14. Games over 350 differ almost entirely by in-battle "engine" operators (缇缇, 瑕光, 史尔特尔, 圣约送葬人,
+荒芜拉普兰德, 百炼嘉维尔, 菲莱, 归溟幽灵鲨, 斯卡蒂): 219 vs 61 layers. battleLayerValue valued only three event kinds,
+≤8 per operator (≤10 / ≤12 in lineup / buy), and ignored 缇缇 / 圣约送葬人 / 归溟幽灵鲨 entirely; 瑕光 at 4 per battle
+(measured 12, elite 30). Report: docs/LAYER-MECHANICS.md.
+
+`botPolicy.battleLayerYield { scale, cap, recurringCap, buyCap }` uses the measured per-battle yield table
+(server/match/botLayerYield.js, 50 operators). Screening seeds 460001–460030 (4 arms × 1200): y40 Σ>350 167 → 287,
+layers +38; ×2 / cap 80 overshoots. Validation seeds 470001–470030 (3 arms × 1200): y40 203 → 273 (McNemar 115:45),
+layers +28 (p<1e-4); R14 wins 24:35 and hidden reached 15:23 (n.s., opposite to the screening's 19:8 / 17:2 — pooled
+43:43 / 32:25). **Adopted** for the 350 target: SOLO_POLICY.ABYSS.battleLayerYield = { scale 1, cap 40, recurringCap 40,
+buyCap 40 }.

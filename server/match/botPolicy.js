@@ -163,9 +163,13 @@ export const BOT_POLICY = Object.freeze({
  * not evaluated for solo. hiddenLayerDrive (2026-10-14, botStrategy.hiddenDrive): from R9 layers on active bonds are
  * worth 1.8× (add-ons like cores) while Σ active ≤ 350, and the R14 lineup over 350 scores +150 — fresh seeds 2400
  * paired games: 隐秘核心 eligibility 123 → 156 (McNemar 76:43, p=0.003), R14 layers +6.8 (p=0.0007), rounds and R14 wins
- * unchanged; a ×4 drive from R6 cost R14 wins (18 → 10) and is not used.
+ * unchanged; a ×4 drive from R6 cost R14 wins (18 → 10) and is not used. battleLayerYield (2026-10-14): the measured
+ * per-battle 特质 layer yield (botLayerYield.js) values layer-engine operators (缇缇, 瑕光, 史尔特尔, 圣约送葬人 …) in
+ * buys and lineups — screening 4800 + fresh-seed validation 2400 paired games: Σ > 350 at R14 167 → 287 and 203 → 273
+ * (McNemar 146:26, 115:45), R14 layers +38 / +28; R14 wins pooled 43:43, rounds +0.10 / −0.02 (n.s.).
  */
 export const SOLO_POLICY = Object.freeze({
   ABYSS: Object.freeze({ ...BOT_POLICY.byDifficulty.ABYSS, coreLayerWeight: 0.9, coreLayerCap: 150, coreLayerValueMul: 2.4, bandScoring: false,
-    hiddenLayerDrive: Object.freeze({ from: 9, mul: 1.8, addonAsCore: true, finalBonus: 150 }) }),
+    hiddenLayerDrive: Object.freeze({ from: 9, mul: 1.8, addonAsCore: true, finalBonus: 150 }),
+    battleLayerYield: Object.freeze({ scale: 1, cap: 40, recurringCap: 40, buyCap: 40 }) }),
 });

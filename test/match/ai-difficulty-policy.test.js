@@ -22,5 +22,7 @@ test('validated ABYSS co-op preset is isolated from HARD and explicit experiment
  }
  assert.equal(SOLO_POLICY.ABYSS.coreLayerWeight,0.9);
  assert.deepEqual({...SOLO_POLICY.ABYSS.hiddenLayerDrive},{from:9,mul:1.8,addonAsCore:true,finalBonus:150});
+ assert.deepEqual({...SOLO_POLICY.ABYSS.battleLayerYield},{scale:1,cap:40,recurringCap:40,buyCap:40});
+ assert.equal(BOT_POLICY.byDifficulty.ABYSS.battleLayerYield,undefined,'co-op ABYSS unchanged');
  assert.equal(BOT_POLICY.byDifficulty.ABYSS.hiddenLayerDrive,undefined,'co-op ABYSS unchanged');
 });

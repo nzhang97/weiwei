@@ -634,7 +634,8 @@ function lineupScore(m, ps, set, ctx, projected = null) {
   const { board, hand, bonds } = projected || lineupState(m, ps, set);
   let v = 0;
   const projection = pol(m).projectedUnitPower ? { bonds, rosterSize: set.length, key: `${set.length}|${Object.entries(bonds).filter(([,b]) => b.active).map(([id,b]) => `${id}:${b.count}:${b.tier}:${b.layers}`).join('|')}` } : null;
-  for (const p of set) v += unitBase(m, ps, p, ctx, projection) + Math.min(10, recurringValue(m, ps, p, { board, hand, bonds }));
+  const recCap = pol(m).battleLayerYield?.recurringCap ?? 10;
+  for (const p of set) v += unitBase(m, ps, p, ctx, projection) + Math.min(recCap, recurringValue(m, ps, p, { board, hand, bonds }));
   for (const p of hand) if (p.kind === 'chess') v += recurringValue(m, ps, p, { board, hand, bonds, bench: true });
   for (const [id, b] of Object.entries(bonds)) {
     if (!b.tier) continue;
@@ -789,7 +790,7 @@ function buyScore(m, ps, id, ctx) {
   const effective = P.projectedUnitPower ? botUnitRecord(m, ps, probe, ps.bonds, Math.min(ps.deployCap, ps.deployCount + 1)) : c;
   if (P.combatPowerWeight > 0) s += P.combatPowerWeight * 0.6 * operatorCombatPower(effective, P.skillPowerWeight ?? 1);
   if (ctx.model) s += waveFit(effective, ctx.model) * botWaveWeight(m);
-  s += Math.min(12, recurringValue(m, ps, probe)) + traitValue(m, ps, probe, ['SERVER_GAIN']) + Math.min(20, economyRecruitValue(m, ps, id));
+  s += Math.min(pol(m).battleLayerYield?.buyCap ?? 12, recurringValue(m, ps, probe)) + traitValue(m, ps, probe, ['SERVER_GAIN']) + Math.min(20, economyRecruitValue(m, ps, id));
   const base = gd.baseIdOf(id);
   if (!c.isGolden) {
     const copies = ctx.copies.get(base) || 0;
