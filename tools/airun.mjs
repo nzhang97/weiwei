@@ -12,8 +12,8 @@ import { Match } from '../server/match/Match.js';
 import { VirtualScheduler } from '../server/match/scheduler.js';
 import { getData } from '../server/data.js';
 // (an upstream tree without the V3 policy module runs its own AI: the --policy overrides are then ignored by the bots)
-let BOT_POLICY = {};
-try { ({ BOT_POLICY } = await import('../server/match/botPolicy.js')); } catch { /* upstream AI */ }
+let BOT_POLICY = {}, SOLO_POLICY = {};
+try { ({ BOT_POLICY, SOLO_POLICY = {} } = await import('../server/match/botPolicy.js')); } catch { /* upstream AI */ }
 import fs from 'node:fs';
 import { PlayerState } from '../server/match/PlayerState.js';
 import { rotateOffset } from '../server/sim/dir.js';
@@ -86,6 +86,7 @@ for (let i = 0; i < argv.length; i++) {
   opt[a.slice(2)] = v;
 }
 const difficulty = String(opt.difficulty || 'ABYSS').toUpperCase();
+const SOLO = opt.solo != null && opt.solo !== 'off';
 let seeds = [];
 if (opt.seeds) seeds = String(opt.seeds).split(',').map(Number).filter(Number.isFinite);
 else { const a = Number(opt.from) || 1, n = Number(opt.count) || 1; for (let i = 0; i < n; i++) seeds.push(a + i); }
@@ -98,7 +99,8 @@ function buildPolicy(seed) {
   const diffOv = { ...diffOv0, ...((perSeed && perSeed[String(seed)]) || {}) };
   return {
     // Match spreads the root last, so difficulty overrides are mirrored at the root to take precedence.
-    ...BOT_POLICY, ...rootOv, ...diffOv,
+    // solo (--solo): the 独立模拟 preset (botPolicy.js SOLO_POLICY) under the overrides, as Match applies it
+    ...BOT_POLICY, ...(SOLO ? SOLO_POLICY[difficulty] || {} : {}), ...rootOv, ...diffOv,
     byDifficulty: { ...BOT_POLICY.byDifficulty, [difficulty]: { ...(BOT_POLICY.byDifficulty?.[difficulty] || {}), ...diffOv } },
   };
 }
@@ -112,7 +114,7 @@ function runOne(seed) {
   // --blank <seat>: a connected human seat that never acts (白板队友); every phase runs on its multi-human timers so the
   // match never waits on it (timeouts: default strategy, prep deadline); --blankLp sets its LP after the strategy draft
   const blank = opt.blank != null && opt.blank !== true ? Number(opt.blank) : null;
-  const solo = opt.solo != null && opt.solo !== 'off';
+  const solo = SOLO;
   const seats = (solo ? [0] : [0, 1, 2, 3]).map((i) => (i === blank
     ? { seat: i, playerId: `hu_${i}`, name: `白板-${i + 1}`, isBot: false, connected: true }
     : { seat: i, playerId: `ai_${i}`, name: `AI-${i + 1}`, isBot: true, connected: true }));

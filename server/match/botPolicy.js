@@ -152,3 +152,16 @@ export const BOT_POLICY = Object.freeze({
   }
 }
 );
+
+/**
+ * 独立模拟 (solo) presets by difficulty (Match applies byDifficulty only in co-op). ABYSS, validated 2026-10-13 with draw
+ * optimisation off (docs/AI-AUDIT.md): the co-op ABYSS table (incl. its band playbooks) plus the stronger core-layer
+ * valuation — screening 12000 games: rounds passed +0.45 vs the bare defaults (p=3e-26); fresh-seed validation 2420
+ * paired games: the layer valuation +0.05 rounds (p=0.006), +4 layers at R14 (p=0.005). Per-band core preferences from
+ * the screening did not hold up (−0.07 rounds, p<0.001) and are not used. The strategy pick stays upstream's
+ * starting-LP draw (bandScoring off): the solo studies forced the strategy per game, so the co-op band scoring was
+ * not evaluated for solo.
+ */
+export const SOLO_POLICY = Object.freeze({
+  ABYSS: Object.freeze({ ...BOT_POLICY.byDifficulty.ABYSS, coreLayerWeight: 0.9, coreLayerCap: 150, coreLayerValueMul: 2.4, bandScoring: false }),
+});

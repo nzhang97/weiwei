@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeMatch, give, legalTileFor } from './harness.js';
 import { botPrepEnd, botPrepBeginSteps } from '../../server/match/bot.js';
+import { BOT_POLICY } from '../../server/match/botPolicy.js';
 
 const NEXT = 'chess_item_2_07_e_a';
 const COIN = 'chess_item_1_03_e_a';
@@ -14,7 +15,8 @@ function setup(policy, itemId) {
   const h = makeMatch({ mode: 'solo', difficulty: 'ABYSS', seats, seed: 5 }).start();
   h.toPrep(2);
   const m = h.m, ps = h.ps('ai_0');
-  m.botPolicy = { ...m.botPolicy, ...policy };
+  // knob tests start from the plain defaults (solo ABYSS otherwise carries SOLO_POLICY, econSweep on)
+  m.botPolicy = { ...BOT_POLICY, ...policy };
   ps.ready = false;
   if (![...ps.board.values()].some((p) => p.kind === 'chess')) { const c = give(m, ps, 'chess_char_1_14_a'); const at = legalTileFor(m, ps, c.id); ps.move(c.uid, { area: 'board', row: at[0], col: at[1] }); }
   for (let i = 0; i < ps.hand.length; i++) if (ps.hand[i] && ps.hand[i].kind === 'item') ps.hand[i] = null;

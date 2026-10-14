@@ -418,3 +418,28 @@ cleared 15 / 12000. The co-op ABYSS preset applied at the root in solo is clearl
 passed +0.45 (paired p=3e-26), R14 wins 26 vs 11 discordant (p=0.02), R14 layers +18 (p<0.001). Core preferences (+40
 for one core bond) add 0–0.3 rounds per band — within noise at 30 seeds; validated on fresh seeds next. The layer sum
 (median ≈130–150 at R14) is far below the 350 the hidden core needs.
+
+
+## Solo ABYSS validation and adoption (2026-10-13, draw optimisation off)
+
+Fresh seeds 420001–420060, 40 strategies (forced per game), nan-office; 7260 games, 0 crashes, 0 engine errors.
+Arms are paired by (strategy, seed) against `preset` (the co-op ABYSS table applied in solo).
+
+| arm | games | R14 wins | hidden cleared (R15) | mean rounds passed | mean active layers at R14 |
+|---|---|---|---|---|---|
+| preset | 2400 | 21 | 2 | 12.178 | 138.6 |
+| presetCore | 2400 | 23 | 2 | 12.113 | 135.2 |
+| presetLayer | 2400 | 27 | 1 | 12.224 | 143.0 |
+| presetScroll | 60 | 1 | 0 | 12.450 | 144.6 |
+
+- `presetLayer` (preset + coreLayerWeight 0.9, coreLayerCap 150, coreLayerValueMul 2.4): +0.046 rounds (Wilcoxon p=0.006),
+  +4.4 layers at R14 (p=0.005). **Adopted** as `SOLO_POLICY.ABYSS` (botPolicy.js; Match.js applies it in solo, airun --solo too).
+- `presetCore` (the screening-best core preference per strategy): −0.065 rounds (p=0.0005) — the screening winners were
+  noise (winner's curse). Rejected.
+- `presetScroll` (夕, scrollTiming deadline 9): +0.1 rounds on 60 games, n.s.
+- All 5 hidden-core clears were 贾维 (band_chiave). The layer column is 0 for games that ended before R14 and (a capture gap)
+  for R14 wins; among games that reached R14 and lost it (~57%), mean active layers ≈241 (median 222) and 13–14% were
+  already above 350. So both limits bind: winning the R14 boss fight (≈1% of games) and reaching 350 layers.
+- The strategy pick in solo stays upstream's starting-LP draw (`bandScoring: false` in SOLO_POLICY): the studies forced the
+  strategy, so the co-op band scoring was not evaluated for solo.
+- Per-strategy table (presetLayer arm): `solo_validation_presetLayer_by_band.csv` in the analysis artifacts.
