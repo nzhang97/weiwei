@@ -505,3 +505,18 @@ paired games per arm; forced cores via corePreference +200 + extraCoreTargets.
 The room rule 抽卡优化 (server/match/drawOptimization.js, room.setDrawOptimization) was removed at the user's request:
 every chess draw is copy-weighted only again. Studies above that say "draw optimisation on" ran with the old rule; the
 ones marked "off" match the current game.
+
+
+## 4-AI co-op ABYSS (2026-10-15, no draw optimisation)
+
+Goal set by the user: 4 AI, ABYSS, R14 clear first, 隐秘核心 second; broader strategy choice.
+- Wave 1 (job 29b020e6, seeds 500001–500250 paired): base win 7.2% (18/250); base + battleLayerYield (cap 40) + gainChurn
+  12.4% (31/250), McNemar 23:10 (p=0.035), team Σ layers +47, rounds +0.02. Wave 2 (fresh seeds 520001–520200): the same
+  policy 13.5% (27/200). **Adopted** in BOT_POLICY.byDifficulty.ABYSS (co-op; solo already had both).
+- Random distinct bands (500 games, seeds 510001–510500): win 5.6%, R14 reached 39% (vs 81%). The natural picks are narrow —
+  歌利亚 25%, Touch 23%, 华法琳 23%, 老鲤 11.5% of seats. Ridge team-rounds effects: 歌利亚 +0.71, Touch +0.71, 卡莱莎
+  +0.36, 芬 +0.34, 阿米娅 +0.21, 凯瑟琳 +0.21; 铃兰 −0.57, 贾维 −0.42, 克莱门莎 −0.40; 老鲤 ≈ 0.
+- Wave 2 diversification (200 paired seeds each vs the adopted policy 13.5%): bandTemperature 4 → 9.0% (rounds −0.36,
+  p<1e-4); band bias = 8 × ridge effect → 11.0% (rounds −0.21; it dropped 歌利亚 from 25% to 4% of seats); forced
+  歌利亚 + Touch + 卡莱莎 + 芬 → 8.5% (rounds −0.05). None adopted: the current trio 歌利亚 / Touch / 华法琳 is part of the
+  strength, so broader choice must be tested per seat, not by flattening the distribution.

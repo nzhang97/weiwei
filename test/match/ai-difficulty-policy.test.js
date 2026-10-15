@@ -24,6 +24,7 @@ test('validated ABYSS co-op preset is isolated from HARD and explicit experiment
  assert.deepEqual({...SOLO_POLICY.ABYSS.hiddenLayerDrive},{from:9,mul:1.8,addonAsCore:true,finalBonus:150});
  assert.deepEqual({...SOLO_POLICY.ABYSS.battleLayerYield},{scale:1,cap:40,recurringCap:40,buyCap:40});
  assert.deepEqual({...SOLO_POLICY.ABYSS.gainChurn},{weight:1,min:4,perRefresh:2});
- assert.equal(BOT_POLICY.byDifficulty.ABYSS.battleLayerYield,undefined,'co-op ABYSS unchanged');
+ assert.deepEqual({...BOT_POLICY.byDifficulty.ABYSS.battleLayerYield},{scale:1,cap:40,recurringCap:40,buyCap:40},'co-op ABYSS: validated 4-AI 2026-10-15');
+ assert.deepEqual({...BOT_POLICY.byDifficulty.ABYSS.gainChurn},{weight:1,min:4,perRefresh:2});
  assert.equal(BOT_POLICY.byDifficulty.ABYSS.hiddenLayerDrive,undefined,'co-op ABYSS unchanged');
 });

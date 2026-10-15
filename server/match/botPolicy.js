@@ -61,6 +61,8 @@ export const BOT_POLICY = Object.freeze({
   "byDifficulty": {
     "ABYSS": {
       "bandScoring": true,
+      "battleLayerYield": { "scale": 1, "cap": 40, "recurringCap": 40, "buyCap": 40 },
+      "gainChurn": { "weight": 1, "min": 4, "perRefresh": 2 },
       "upgradeReserveCoins": 3,
       "upgradeReserveUntilRound": 7,
       "waveFitWeight": 1.35,
