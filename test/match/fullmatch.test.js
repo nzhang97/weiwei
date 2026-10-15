@@ -28,7 +28,8 @@ test('boosted LP: the real sim reaches the Final Assault (solo FUNNY R9, co-op N
 test('determinism: the same seed and inputs give the same match (client-side and server-run combat)', () => {
   const a = runFull({ mode: 'coop', difficulty: 'HARD', humans: 1, bots: 2, seed: 4242 }).res;
   const b = runFull({ mode: 'coop', difficulty: 'HARD', humans: 1, bots: 2, seed: 4242 }).res;
-  const strip = (r) => JSON.stringify({ ...r, durationMs: 0 });
+  // durationMs and actionLogId (the action log's file id, from the wall clock) are not match state
+  const strip = (r) => JSON.stringify({ ...r, durationMs: 0, actionLogId: undefined });
   assert.equal(strip(a), strip(b));
   const c = runFull({ mode: 'coop', difficulty: 'HARD', humans: 1, bots: 2, seed: 4243 }).res;
   assert.notEqual(strip(a), strip(c));

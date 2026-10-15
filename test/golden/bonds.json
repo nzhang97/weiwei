@@ -1254,10 +1254,10 @@
         ["p1",8,"op","chess_char_5_10_b",2,"uniequip_002_lisa",1628,1,7,0,8117,0,0,11,2]
       ],
       "enemies": {"enemy_1116_liprr_2":[10,10,0,0,86400],"enemy_1119_vofsd":[5,5,0,0,63360],"enemy_1121_lifbos_2":[3,3,0,0,86400]},
-      "hooks": [1,26,2242,130,130,214,455,799,19,20,8,6,0,4300,220,0,18,0,1,69,0,0,0],
-      "events": {"atk":139,"deploy":8,"die":20,"dmg":214,"engage":4,"fx":8,"skill":14,"spawn":26,"status":93},
-      "fx": {"anchor":2,"aoe":1,"ember":1,"overload":1,"wake":3},
-      "snaps": "20b02e5d 62806db6 18412d2e cf8db9fc 4fa6dfe1 e56eee66 0581ad60 bf200036"
+      "hooks": [1,26,2242,130,130,211,452,799,19,20,8,6,0,4300,221,0,18,0,1,64,0,0,0],
+      "events": {"atk":139,"deploy":8,"die":20,"dmg":211,"engage":4,"fx":13,"skill":14,"spawn":26,"status":93},
+      "fx": {"anchor":2,"aoe":1,"ember":1,"overload":1,"wake":8},
+      "snaps": "20b02e5d 62806db6 e41b2c41 1d9e0633 25b5bb36 763c2f29 6834774e 5296ccb0"
     },
     "bond-soloShip-low": {
       "about": "独行 low: tier 1 layers 1; chess_char_3_16_a chess_char_4_01_a chess_char_1_08_a chess_char_3_18_a chess_char_3_19_a chess_char_3_20_a chess_char_3_21_a chess_char_4_02_a token_10028_vigil_wolf",

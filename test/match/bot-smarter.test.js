@@ -268,9 +268,11 @@ test('items: 信标 on a bench single; both 博士投影 on a normal operator ev
   const cell = itemTarget(m, ps, giveItem(m, ps, 'chess_item_5_08_e_a'));
   assert.ok(cell && !m.gd.isGolden(cell.id) && tierOf(cell) < 6, '突变细胞 on a normal operator below VI');
   assert.ok(![pairA.uid, pairB.uid].includes(cell.uid), '…never one of a merge pair');
-  // 拟态物质 (a third copy when two are owned): the pair
+  // 拟态物质 (a third copy when two are owned): a member of an owned pair — the given one, or another pair the board
+  // already holds (V3 AI: completing a deployed pair can be worth more)
+  const normalCopies = (b) => ps.allChess().filter((p) => m.gd.baseIdOf(p.id) === b && !m.gd.isGolden(p.id)).length;
   const mimic = itemTarget(m, ps, giveItem(m, ps, 'chess_item_5_05_e_a'));
-  assert.ok(mimic && [pairA.uid, pairB.uid].includes(mimic.uid), '拟态物质 on the pair');
+  assert.ok(mimic && !m.gd.isGolden(mimic.id) && normalCopies(m.gd.baseIdOf(mimic.id)) >= 2 && m.pool.left(m.gd.baseIdOf(mimic.id)) > 0, '拟态物质 on a pair');
   // …but not once the pool has no third copy: the item would give nothing (GitHub #207)
   m.pool.take(pairId, m.pool.left(pairId));
   const mimic2 = itemTarget(m, ps, giveItem(m, ps, 'chess_item_5_05_e_a'));
