@@ -100,7 +100,7 @@ import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shar
 import { BOT_POLICY } from './botPolicy.js';
 import { createBossRehearsalSteps } from './botBoss.js';
 import { relayCarryValue, relayUpgradeWanted, createRelayRehearsal, relayDefenseValue } from './botTeam.js';
-import { bandScore, hiddenDrive, gainCountValue, corePlan, coreReserveValue, coreUpgradeWanted, economyRecruitValue, garrisons, lineupState, layerValue, traitValue, recurringValue, combatBondValue, combatRecord, benchValue, refreshValue as strategyRefreshValue, bestEquipmentTarget } from './botStrategy.js';
+import { bandScore, hiddenDrive, driveLayers, gainCountValue, corePlan, coreReserveValue, coreUpgradeWanted, economyRecruitValue, garrisons, lineupState, layerValue, traitValue, recurringValue, combatBondValue, combatRecord, benchValue, refreshValue as strategyRefreshValue, bestEquipmentTarget } from './botStrategy.js';
 
 /** The match's AI policy (Match.botPolicy); a stub match without one uses the defaults. */
 const pol = (m) => m.botPolicy || BOT_POLICY;
@@ -671,7 +671,8 @@ function lineupScore(m, ps, set, ctx, projected = null) {
   if (drive?.finalBonus && m.round === gd.bossRound) {
     let L = 0;
     for (const b of Object.values(bonds)) if (b.active) L += b.layers || 0;
-    if (L > drive.threshold) v += drive.finalBonus;
+    // co-op: the teammates' activated layers count too (the team Σ against hiddenCore.multi)
+    if (driveLayers(m, ps, drive, L) > drive.threshold) v += drive.finalBonus;
   }
   return v;
 }

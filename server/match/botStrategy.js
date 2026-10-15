@@ -187,16 +187,31 @@ export function bandScore(m, ps, id) {
 }
 
 /**
- * botPolicy.hiddenLayerDrive { from, mul, addonAsCore, finalBonus } (default off): the solo 隐秘核心 needs Σ active layers
- * > hiddenCore.single at the R14 prep end. While the own Σ is below it, from round `from` every layer on an active bond
- * is worth `mul` × (add-ons valued like a core when addonAsCore: each one counts the same toward the threshold); at the
- * R14 prep a lineup over the threshold scores `finalBonus` more (lineupScore, bot.js). Solo only (co-op sums the team).
+ * botPolicy.hiddenLayerDrive { from, mul, addonAsCore, finalBonus } (default off): the 隐秘核心 needs Σ activated layers
+ * > hiddenCore.single (solo: the own) / hiddenCore.multi (co-op: every alive player's, prep.js hiddenLayerSum) at the
+ * R14 prep end. While that Σ (driveLayers) is not above it, from round `from` every layer on an active bond is worth
+ * `mul` × (add-ons valued like a core when addonAsCore: each one counts the same toward the threshold); at the R14 prep a
+ * lineup that puts the Σ over the threshold scores `finalBonus` more (lineupScore, bot.js). Co-op (`team`): the
+ * teammates' current activated layers are added to the own.
  */
 export function hiddenDrive(m, ps) {
   const D = (m.botPolicy || BOT_POLICY).hiddenLayerDrive;
   const gd = ps?.gd || m.gd;
-  if (!D || !m.isSolo || !gd.hiddenRound || !gd.hiddenCore?.difficulties?.includes(m.difficulty)) return null;
-  return { ...D, threshold: gd.hiddenCore.single };
+  if (!D || !gd.hiddenRound || !gd.hiddenCore?.difficulties?.includes(m.difficulty)) return null;
+  if (m.isSolo) return { ...D, threshold: gd.hiddenCore.single, team: false };
+  return { ...D, threshold: gd.hiddenCore.multi, team: true };
+}
+
+/**
+ * Σ activated layers the 隐秘核心 check would count now: the player's own (solo) or every alive player's (co-op drive),
+ * with `ownL` standing in for the player's own when given (a projected lineup).
+ */
+export function driveLayers(m, ps, drive, ownL = null) {
+  const own = Number.isFinite(ownL) ? ownL : typeof ps?.activatedLayers === 'function' ? ps.activatedLayers() : 0;
+  if (!drive || !drive.team || typeof m.alivePlayers !== 'function') return own;
+  let s = own;
+  for (const q of m.alivePlayers()) if (q && q.playerId !== ps?.playerId && typeof q.activatedLayers === 'function') s += q.activatedLayers();
+  return s;
 }
 
 /** Value only layers that can matter to this lineup; unactivated layers persist, but are speculative. */
@@ -208,7 +223,7 @@ export function layerValue(m, ps, id, amount, bonds = ps.bonds) {
   const state = bonds[id];
   const weight = state?.active ? 1 : state?.count > 0 ? 0.25 : 0;
   const drive = hiddenDrive(m, ps);
-  const driving = !!drive && m.round >= (drive.from ?? 9) && m.round <= (ps?.gd || m.gd).bossRound && typeof ps.activatedLayers === 'function' && ps.activatedLayers() <= drive.threshold;
+  const driving = !!drive && m.round >= (drive.from ?? 9) && m.round <= (ps?.gd || m.gd).bossRound && typeof ps.activatedLayers === 'function' && driveLayers(m, ps, drive) <= drive.threshold;
   const asCore = (ps?.gd || m.gd).bond(id).isCore || (driving && drive.addonAsCore);
   const priority = asCore ? (ps._botCore?.id === id ? 1.3 : 1) * (m.botPolicy || BOT_POLICY).coreLayerValueMul : 0.8;
   return n * weight * priority * (driving ? drive.mul ?? 1 : 1) * (asCore ? phaseLayerWeights(m).core : phaseLayerWeights(m).addon) * (0.35 + Math.min(8, future(m)) * 0.035);
