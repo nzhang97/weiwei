@@ -251,8 +251,6 @@ export class Match {
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
     this.aiPicksLast = !this.isSolo && opts.aiPicksLast === true;
-    // optional room rule 抽卡优化 (server/match/drawOptimization.js)
-    this.drawOptimization = opts.drawOptimization !== false;
     // AI policy (server/match/botPolicy.js; read by bot.js / botStrategy.js / botTeam.js / botBoss.js): the defaults, then
     // in co-op the difficulty's tuned overrides (byDifficulty — of opts.botPolicy when it brings its own table), then
     // opts.botPolicy itself (experiments / tools/airun.mjs). Decisions only — no rule or stat changes.

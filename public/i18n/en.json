@@ -1220,8 +1220,6 @@
   "已开启": "On",
   "未开启": "Off",
   "由创建者设置。": "Set by the creator.",
-  "抽卡优化": "Draw optimization",
-  "真人和 AI 队友各自按盟约叠层排名抽卡：前四名权重分别为 3、2.5、2、1.5 倍，其余为 1 倍。初始商店、刷新及随机获取干员均生效；不叠层盟约不参与排名，零层不加权，同层共享排名。干员有多个盟约时只取最高倍率。": "Humans and AI teammates draw by their own bond-layer ranking: the top four bonds weigh ×3, ×2.5, ×2 and ×1.5, the rest ×1. Applies to the starting shop, refreshes and random operator gains; non-stacking bonds are not ranked, zero layers get no weight, equal layers share a rank. An operator with several bonds uses its highest multiplier.",
   "已上传到 GitHub，任何设备的提交都会汇总给AI学习": "Uploaded to GitHub — submissions from every device are collected for AI training",
   "已保存在本机，上传失败，稍后自动重试": "Saved on this machine; upload failed, will retry automatically",
   "已保存在本机 logs/ai_training（本机未配置 GitHub 上传）": "Saved on this machine in logs/ai_training (GitHub upload not configured here)",

@@ -498,3 +498,10 @@ paired games per arm; forced cores via corePreference +200 + extraCoreTargets.
 - 炎 forced: early churn → 炎 layers 27 → 42 but R14 reached 33:65, R14 wins 2:12; late churn (leftover funds only) ≈ no-op.
 - Natural core choice: churn (+ package) R14 wins 42:17 (p=0.002), Σ > 350 73:44 (p=0.009), rounds unchanged; the
   package alone: no effect. **Adopted**: SOLO_POLICY.ABYSS.gainChurn = { weight 1, min 4, perRefresh 2 }.
+
+
+## 2026-10-15: 抽卡优化 removed
+
+The room rule 抽卡优化 (server/match/drawOptimization.js, room.setDrawOptimization) was removed at the user's request:
+every chess draw is copy-weighted only again. Studies above that say "draw optimisation on" ran with the old rule; the
+ones marked "off" match the current game.

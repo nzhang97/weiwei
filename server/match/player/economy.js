@@ -7,7 +7,6 @@
 import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
-import { chessDrawWeight } from '../drawOptimization.js';
 
 export class PlayerEconomy {
   addFunds(n, { reason = '' } = {}) {
@@ -65,12 +64,9 @@ export class PlayerEconomy {
     return Number.isFinite(p) ? Math.max(0, Math.round(p)) : slot.basePrice;
   }
 
-  /** 抽卡优化 (room option): draw multiplier by this player's bond-layer rank, undefined when off. */
-  chessDrawWeight() { return chessDrawWeight(this.gd, this.layers, this.m.drawOptimization); }
-
   _rollChessSlot() {
     // the slotted 自选 pieces join the draw once the 调度中心 reaches their slot's level (player/diy.js diyRollEntries)
-    const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, extra: this.diyRollEntries(), weight: this.chessDrawWeight() });
+    const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, extra: this.diyRollEntries() });
     return id ? { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false } : null;
   }
 

@@ -189,8 +189,6 @@ export class Room {
      * put every human seat before every AI seat (Match opts.aiPicksLast). Kept across the room's matches.
      */
     this.aiPicksLast = false;
-    // optional room rule 抽卡优化 (on by default): Match opts.drawOptimization
-    this.drawOptimization = true;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -241,7 +239,6 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       aiPicksLast: this.aiPicksLast,
-      drawOptimization: this.drawOptimization,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
@@ -352,7 +349,6 @@ export class Lobby {
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
-      case 'room.setDrawOptimization': return this.setRoomRule(session, 'drawOptimization', msg.enabled, false);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
@@ -542,8 +538,6 @@ export class Lobby {
     }
     return OK;
   }
-
-  setDrawOptimization(session, { enabled }) { return this.setRoomRule(session, 'drawOptimization', enabled, false); }
 
   /** Optional room rule `key` (host-only, before the match; `coopOnly`: AI-teammate rules). */
   setRoomRule(session, key, enabled, coopOnly) {
@@ -770,7 +764,6 @@ export class Lobby {
         modeId: modeIdFor(room.mode, room.difficulty),
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
-        drawOptimization: room.drawOptimization === true,
         seats,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),

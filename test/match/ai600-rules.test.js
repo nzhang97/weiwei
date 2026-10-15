@@ -4,8 +4,8 @@ import {makeMatch,give} from './harness.js';
 import {applyCard} from '../../server/match/choices.js';
 import {botPrepBegin} from '../../server/match/bot.js';
 
-test('free promotion recruit and choice fallback use each owner ranking, retain free distinct offer and pool copies',()=>{
- const h=makeMatch({mode:'coop',humans:1,bots:1,fake:true,seed:6501,drawOptimization:true}).start();h.toPrep(1);
+test('free promotion recruit and choice fallback draw unweighted, retain free distinct offer and pool copies',()=>{
+ const h=makeMatch({mode:'coop',humans:1,bots:1,fake:true,seed:6501}).start();h.toPrep(1);
  const m=h.m;for(const k of ['aiOperatorBuff','humanOperatorBuff','aiRound34Nerf','freeOperatorPick'])assert.ok(!m[k]);
  const base=[...m.pool.entries.keys()].find(id=>m.gd.chess(id).bonds.some(b=>!m.gd.bond(b).noStack));
  const bond=m.gd.chess(base).bonds.find(b=>!m.gd.bond(b).noStack);
@@ -14,14 +14,13 @@ test('free promotion recruit and choice fallback use each owner ranking, retain 
  const roll=m.pool.roll.bind(m.pool);let calls=[];m.pool.roll=(rng,o)=>{calls.push(o);return roll(rng,o);};
  for(const ps of m.order){
   ps.layers={[bond]:100};calls=[];const before=m.pool.snapshot();const offer=ps.pushRewardOffer();
-  assert.ok(calls.length>0&&calls.every(o=>o.weight(base)===3));
+  assert.ok(calls.length>0&&calls.every(o=>o.weight===undefined));
   assert.deepEqual(m.pool.snapshot(),before,'offers reserve no copies');
   assert.equal(new Set(offer.slots.map(s=>s.id)).size,offer.slots.length);
   assert.ok(offer.slots.every(s=>s.price===0));
   ps.layers={[bond]:100};calls=[];applyCard(m,ps,{kind:'tactic',id:'test-free',team:false});
-  assert.ok(calls.length>0&&calls.every(o=>o.weight(base)===3));
+  assert.ok(calls.length>0&&calls.every(o=>o.weight===undefined));
  }
- m.drawOptimization=false;calls=[];applyCard(m,m.order[0],{kind:'tactic',id:'test-free',team:false});assert.ok(calls.length>0&&calls.every(o=>o.weight===undefined));
  m.dispose();
 });
 

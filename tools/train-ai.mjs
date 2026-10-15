@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Four AI only; legal game resources, full combat, draw optimization off (--drawOpt on to enable).
+// Four AI only; legal game resources, full combat.
 import fs from 'node:fs';
 import {BOT_POLICY} from '../server/match/botPolicy.js';
 import {Match} from '../server/match/Match.js';
@@ -14,7 +14,7 @@ const data=getData({log:{info(){},warn(){},error(){}}});
 const results=[];
 for(const difficulty of (opt.difficulty || 'HARD,ABYSS').split(',')) for(let seed=Number(opt.seed || 3101);seed<Number(opt.seed || 3101)+Number(opt.seeds || 2);seed++){
  const scheduler=new VirtualScheduler(),errors=[],rounds=[];let summary;let bossRehearsals=0;
- const m=new Match({mode:'coop',difficulty,seed,data,scheduler,botPolicy:policy,drawOptimization:opt.drawOpt==='on',botRehearsal:3,
+ const m=new Match({mode:'coop',difficulty,seed,data,scheduler,botPolicy:policy,botRehearsal:3,
   seats:Array.from({length:4},(_,seat)=>({seat,playerId:`ai_${seat}`,name:`AI${seat}`,isBot:true,connected:true})),
   log:{info(){},warn:(...x)=>{const message=x.join(' ');if(/rehearsal failed/.test(message))errors.push(message);},error:(...x)=>errors.push(x.join(' '))},send:()=>true,broadcast(){},onEnd:s=>summary=s});
  const buildBattle=m.newBattle.bind(m);m.newBattle=opts=>{if(opts.fieldId?.startsWith('boss-rehearse:'))bossRehearsals++;return buildBattle(opts);};
@@ -40,6 +40,6 @@ for(const difficulty of (opt.difficulty || 'HARD,ABYSS').split(',')) for(let see
   errors,matchErrors:m.errorCount,simErrors:m.simErrorLog.size,metaErrors:m.dispatcher.errors,schedulerErrors:scheduler.errors,violations:audit.violations};
  results.push(result);m.dispose();console.error(JSON.stringify({seed,difficulty,policy:result.policy,ms:result.ms,metrics:result.metrics,bands:result.bands}));
 }
-const report={protocol:{players:4,bots:4,humans:0,drawOptimization:true,botRehearsal:3,statBoosts:false,aiOperatorBuff:false,humanOperatorBuff:false,aiRound34Nerf:false,freeOperatorPick:false,policy,forcedBands:(opt.bands || '').split(',').filter(Boolean),objective:'fixed-horizon per-round own-field leaks, before ally assistance; progression only a small secondary bonus'},results};
+const report={protocol:{players:4,bots:4,humans:0,botRehearsal:3,statBoosts:false,aiOperatorBuff:false,humanOperatorBuff:false,aiRound34Nerf:false,freeOperatorPick:false,policy,forcedBands:(opt.bands || '').split(',').filter(Boolean),objective:'fixed-horizon per-round own-field leaks, before ally assistance; progression only a small secondary bonus'},results};
 if(opt.output)fs.writeFileSync(opt.output,JSON.stringify(report,null,2)+'\n');else console.log(JSON.stringify(report));
 if(results.some(r=>r.errors.length || r.matchErrors || r.simErrors || r.metaErrors || r.schedulerErrors.length || r.violations.length))process.exitCode=1;

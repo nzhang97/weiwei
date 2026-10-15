@@ -121,11 +121,7 @@ export class SharedPool {
    *   extra?: Iterable<[string, { left: number, tier: number }]>|null }} [opts]
    */
   roll(rng, opts = {}) {
-    // opts.weight(id): a draw multiplier on the remaining copies (抽卡优化, server/match/drawOptimization.js)
-    const el = typeof opts.weight === 'function' ? this._eligible(opts).map(([id, n]) => {
-      const w = opts.weight(id);
-      return [id, n * (Number.isFinite(w) && w > 0 ? w : 1)];
-    }) : this._eligible(opts);
+    const el = this._eligible(opts);
     let total = 0;
     for (const [, n] of el) total += n;
     if (total <= 0) return null;

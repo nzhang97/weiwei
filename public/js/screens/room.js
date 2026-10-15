@@ -220,13 +220,10 @@ function AiLastToggle({ option, busy, onToggle }) {
 }
 
 /**
- * Optional room rules (host-only before the match; everyone sees them): 抽卡优化 — room.setDrawOptimization,
- * room.state.drawOptimization (server/lobby.js setRoomRule).
+ * Optional room rules (host-only before the match; everyone sees them; server/lobby.js setRoomRule). None at
+ * present: 抽卡优化 was removed (2026-10-15).
  */
-const ROOM_RULES = [
-  { key: 'drawOptimization', msg: 'room.setDrawOptimization', name: N_('抽卡优化'),
-    desc: N_('真人和 AI 队友各自按盟约叠层排名抽卡：前四名权重分别为 3、2.5、2、1.5 倍，其余为 1 倍。初始商店、刷新及随机获取干员均生效；不叠层盟约不参与排名，零层不加权，同层共享排名。干员有多个盟约时只取最高倍率。') },
-];
+const ROOM_RULES = [];
 
 function RoomRules({ room, coop, isHost, online, busy, onSet }) {
   return html`${ROOM_RULES.filter((r) => coop || !r.coop).map((r) => html`<section key=${r.key} class="room-ai-buff" aria-label=${t(r.name)}>
