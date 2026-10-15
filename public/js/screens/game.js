@@ -204,6 +204,7 @@ function MatchScreen() {
   const [banner, setBanner] = useState(null);
   const [resultBox, setResultBox] = useState(null);      // the round's result box (ResultDialog), shown at SETTLE
   const [readyBusy, setReadyBusy] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
   const [spBusy, setSpBusy] = useState(null);
   const [personalBusy, setPersonalBusy] = useState(null); // { choiceId, idx }: an older request cannot clear a newer pick
   const [layer, setLayer] = useState('ALL');             // 联防 / 最终攻势 camera: 'L' | 'ALL' | 'R'
@@ -800,6 +801,7 @@ function MatchScreen() {
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
   // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
   const askingReady = useRef(false);
+  const autoBusyRef = useRef(false);
   const toggleReady = useCallback(async (r) => {
     const L = live.current;
     const me = Array.isArray(L.pub?.players) ? L.pub.players.find((p) => p && p.playerId === L.myId) : null;
@@ -815,6 +817,12 @@ function MatchScreen() {
     setReadyBusy(true);
     await actions.ready(r);
     setReadyBusy(false);
+  }, []);
+  // 一键站位: one request at a time (the server plans and rehearses several layouts)
+  const autoArrange = useCallback(async () => {
+    if (autoBusyRef.current) return;
+    autoBusyRef.current = true; setAutoBusy(true);
+    try { await actions.autoArrange(); } finally { autoBusyRef.current = false; setAutoBusy(false); }
   }, []);
   // the prep ended (timer) while the question was open: drop it — the funds are gone either way
   useEffect(() => { if (phase !== PHASE.PREP && askingReady.current) closeAllDialogs(); }, [phase]);
@@ -1456,6 +1464,7 @@ function MatchScreen() {
       <${TopBar} pub=${pub} priv=${priv} conn=${conn} hud=${hud} total=${total} drawer=${drawer}
         onExit=${() => setExitOpen(true)} onDrawer=${(t) => setDrawer((d) => (d ? null : t))} onReady=${toggleReady}
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
+        onAutoArrange=${spectator ? null : autoArrange} autoBusy=${autoBusy}
         pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt}
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
         live=${liveLpNow} spectator=${spectator}

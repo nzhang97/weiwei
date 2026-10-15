@@ -837,7 +837,12 @@ export function validateClientResult(spec, raw, { gd = null, verifyLayerOverflow
         const modsOf = (s) => (s && s.mods ? { ...s.mods } : null);
         const mods = match ? modsOf(match) : parent ? modsOf(parent) : modsOf(src);
         let sourcePlayerId = typeof l.sourcePlayerId === 'string' ? l.sourcePlayerId : null;
-        if (spec.kind === 'unite') {
+        // 联防 本体击杀免责 (sim Battle._absolveRoot): a split / summoned child whose body a helper knocked down costs nobody —
+        // only a content-spawned key may be absolved (an enemy a leaker sent in is never somebody's child)
+        const absolved = spec.kind === 'unite' && l.absolved === true;
+        if (absolved && !B.derived.has(key)) return bad('absolved leak');
+        if (absolved) sourcePlayerId = null;
+        else if (spec.kind === 'unite') {
           if (!sourcePlayerId || !B.sources.has(sourcePlayerId)) sourcePlayerId = src && typeof src.sourcePlayerId === 'string' ? src.sourcePlayerId : null;
           // whose LP a surviving enemy costs: never more of (key, leaker) than that leaker sent into the 联防 — or, for a
           // split / summon, than the enemies that leaker sent in can leave behind
@@ -846,6 +851,7 @@ export function validateClientResult(spec, raw, { gd = null, verifyLayerOverflow
         const lpr = finiteIn(l.lpr, 0, 1000) ? l.lpr : 1;
         const e = { enemyKey: key, mods, lpr, sourcePlayerId, tag: src ? (src.tag ?? null) : (typeof l.tag === 'string' ? l.tag : null), counted, spawned: true };
         if (l.boss) e.boss = true;
+        if (absolved) e.absolved = true;
         leaked.push(e);
       }
       const countedLeaks = leaked.filter((l) => l.counted !== false).length;

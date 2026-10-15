@@ -30,7 +30,9 @@
 // like settle() — the strip's count; "以其阵地当前的状态" [ASSUMED] includes them; until 0.1.3 the round-start layers),
 // and settle() still adds those gains once. Time limit = the round's combat limit.
 // LP: an enemy still alive at the end (leaked in the unite battle, or never spawned before the limit) costs its
-// SOURCE player 1 LP; each player's round loss = min(lpCap, survivors attributed to them + leaks that could not
+// SOURCE player 1 LP — except the children (splits, death spawns, summons) of a body a helper knocked down on the unite
+// field: they cost nobody (本体击杀免责, user ruling 2026-10-15; sim Battle._absolveRoot clears their sourcePlayerId);
+// each player's round loss = min(lpCap, survivors attributed to them + leaks that could not
 // re-enter) — the same 10 cap as a normal round.
 
 import { buildUniteWave } from './waves.js';

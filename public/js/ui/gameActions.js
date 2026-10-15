@@ -91,6 +91,8 @@ export const actions = {
   reward: (idx) => act('g.reward', { idx }),
   choice: (idx, choiceId) => act('g.choice', choiceId === undefined ? { idx } : { idx, choiceId }),
   ready: (ready) => act('g.ready', { ready }, { sfx: ready ? 'ready' : 'back' }),
+  // 一键站位: the server's AI planner re-places the operators on the own board (server/match/match/intents.js autoArrange)
+  autoArrange: () => act('g.autoArrange', {}, { sfx: 'drop' }),
   emote: (id) => act('g.emote', { id }, { quiet: true }),
   // `playerId`: the player tapped in the team panel (a shared field shows two) — what an eliminated viewer follows
   watch: (fieldId, playerId = null) => act('g.watch', typeof playerId === 'string' && playerId ? { fieldId, playerId } : { fieldId }, { sfx: 'tab' }),

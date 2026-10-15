@@ -36,7 +36,7 @@ const isModVal = (v) => v === null || isNum(v, -BIG, BIG) || isStr(v, 64) || isB
 const isLeak = (l) => isPlain(l) && isId(l.enemyKey)
   && (l.mods === undefined || l.mods === null || isMap(l.mods, RESULT_LIMITS.mods, (k) => isStr(k, 32), isModVal))
   && optional((v) => isNum(v, 0, 1000))(l.lpr) && nullable(isId)(l.sourcePlayerId) && nullable((v) => isStr(v, 16))(l.tag)
-  && optional(isBool)(l.counted) && optional(isBool)(l.boss) && optional(isBool)(l.spawned);
+  && optional(isBool)(l.counted) && optional(isBool)(l.boss) && optional(isBool)(l.spawned) && optional(isBool)(l.absolved);
 const isUnitEnd = (u) => isPlain(u) && nullable(isUid)(u.uid) && isNum(u.hpPct, 0, 1) && isNum(u.sp, 0, 1e5) && isBool(u.alive)
   && optional(isBool)(u.skillActive) && nullable(isId)(u.defId);
 const isUnitStat = (u) => isPlain(u) && nullable(isUid)(u.uid) && nullable(isId)(u.defId) && optional((v) => isStr(v, 16))(u.kind)
@@ -427,6 +427,8 @@ export const C2S = {
   'g.sell': { uid: isUid },
   // dir: the facing chosen on the deploy wheel for a board target (absent ⇒ RIGHT; the piece's own tile ⇒ re-orient)
   'g.move': { uid: isUid, to: target, dir: isDir, $optional: ['dir'] },
+  // 一键站位 (server/match/match/intents.js autoArrange): the AI planner re-places the operators on the own board
+  'g.autoArrange': {},
   // replaceUid: with both of the target's slots used, the equipped item the replace dialog picked (research 09 §1.2
   // UseEquipUp.unloadInstId; absent ⇒ the oldest; not one of the target's items ⇒ BAD_TARGET)
   'g.equip': { itemUid: isUid, targetUid: isUid, replaceUid: nullable(isUid), $optional: ['replaceUid'] },

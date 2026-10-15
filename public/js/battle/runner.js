@@ -634,8 +634,14 @@ export function createBattleRunner(deps) {
       // the server still waits for this finished battle's result (lost with the socket, or its answer was): again
       if (msg.authoritative && existing.resultSent) deliver(existing);
       if (!existing.battle) {
-        // still loading: it starts from the latest field clock
+        // still loading: it starts from the latest field clock (and its latest rate)
         existing.elapsed = Number(msg.elapsed) || 0;
+        if (!existing.authoritative) existing.speed = speed;
+      } else if (!existing.authoritative && speed !== existing.speed) {
+        // 加速 (server/match/match/clientCombat.js _maybeWarpFields: an AI teammate's field once the human battles are
+        // over): the display replica re-anchors to the field clock at the new rate
+        existing.speed = speed;
+        existing.t0 = clock() - ((Number(msg.elapsed) || 0) / speed) * 1000;
       } else if (existing.authoritative && !was) {
         // handover (the partner left): continue from the field's clock and report from now on
         existing.t0 = clock() - ((Number(msg.elapsed) || 0) / speed) * 1000;

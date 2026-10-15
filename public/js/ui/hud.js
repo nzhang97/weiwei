@@ -252,7 +252,7 @@ export function tempReadyReason(priv) {
  * under it (not only on hover): "临时整备区 N 个单位待处理" (user playtest #3 item 3), "请先完成教鞭选择".
  * @param {{ priv:any, onToggle:(ready:boolean)=>void, busy?:boolean, readyCount?:number, total?:number }} props
  */
-export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
+export function ReadyToggle({ priv, onToggle, busy, readyCount, total, onAutoArrange = null, autoBusy = false }) {
   const ready = !!priv?.ready;
   const temp = tempInfo(priv);
   const choice = !!priv?.personalChoice;
@@ -264,8 +264,13 @@ export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
     <span class="readybtn__label">${ready ? t('取消准备') : t('准备就绪')}</span>
     <kbd class="readybtn__key">${hotkeyLabelOf('ready')}</kbd>
   </button>`;
+  // 一键站位 (g.autoArrange): beside the ready toggle while the board can still be edited
+  const auto = onAutoArrange && !ready && !choice ? html`<${Tooltip} text=${t('AI 按最少漏怪重新摆放场上干员（试演本回合敌人）')} placement="bottom">
+      <button type="button" class=${cx('autoarrbtn', 'tapx', autoBusy && 'is-busy')} disabled=${!!autoBusy} data-testid="auto-arrange"
+        onClick=${() => onAutoArrange()}><${Icon} name="refresh" /><span>${t('AI站位')}</span></button><//>` : null;
+  const main = reason ? html`<${Tooltip} text=${reason} placement="bottom">${btn}<//>` : btn;
   return html`<div class="readywrap">
-    ${reason ? html`<${Tooltip} text=${reason} placement="bottom">${btn}<//>` : btn}
+    ${auto ? html`<div class="readywrap__row">${auto}${main}</div>` : main}
     ${why ? html`<span class="readywrap__why" id="readywrap-why" role="status" data-testid="ready-why">
       <${Icon} name="warn" />${choice ? html`<span>${reason}</span>`
         : html`<span>${tParts('临时整备区 {n} 个单位待处理', { n: html`<b class="num">${temp.count}</b>`, count: temp.count })}</span>`}</span>` : null}
@@ -348,6 +353,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  * Top bar.
  * @param {{ pub:any, priv:any, conn:any, hud:any, total:number|null, drawer:string|null, onExit:Function, onDrawer:(tab:string)=>void,
  *   onReady:(r:boolean)=>void, readyBusy?:boolean, readyCount?:number, playerCount?:number,
+ *   onAutoArrange?: (() => void)|null, autoBusy?: boolean,
  *   pen?:boolean, penAvail?:boolean, onPen?:(on:boolean)=>void, config?: any, frozenAt?: number|null,
  *   pause?: { show: boolean, paused: boolean, busy?: boolean, onToggle: () => void } | null,
  *   live?: { pending: number, unite: boolean, left?: number|null } | null,
@@ -357,7 +363,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *   live: the own battle's pending LP loss (liveLp): the tower keeps the settled lp and adds a red −N tick, 联防中 during 联防;
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
-export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
+export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, onAutoArrange = null, autoBusy = false, pen = false, penAvail = false, onPen = () => {},
   config = null, frozenAt = null, pause = null, live = null, spectator = false,
   spectators = null, myId = null, isHost = false, onRemoveSpectator = null }) {
   const phase = pub?.phase;
@@ -419,7 +425,8 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
         ${pause && (pause.show || pause.paused) ? html`<${PauseButton} paused=${!!pause.paused} busy=${pause.busy} onToggle=${pause.onToggle} />` : null}
       </div>
       <${OvertimeWarning} ot=${ot} />
-      ${showReady ? html`<${ReadyToggle} priv=${priv} onToggle=${onReady} busy=${readyBusy} readyCount=${readyCount} total=${playerCount} />` : null}
+      ${showReady ? html`<${ReadyToggle} priv=${priv} onToggle=${onReady} busy=${readyBusy} readyCount=${readyCount} total=${playerCount}
+        onAutoArrange=${onAutoArrange} autoBusy=${autoBusy} />` : null}
     </div>
   </header>`;
 }

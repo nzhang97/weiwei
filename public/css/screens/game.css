@@ -233,6 +233,17 @@
 .readybtn:disabled { border-color: var(--line-2); color: var(--text-dim); box-shadow: none; cursor: not-allowed; }
 .readybtn:disabled .readybtn__box { border-color: var(--line-2); }
 .readybtn.is-busy { opacity: .7; }
+/* 一键站位 (AI站位) beside the ready toggle */
+.readywrap__row { display: flex; align-items: center; gap: .1rem; }
+.autoarrbtn {
+  display: flex; align-items: center; gap: .06rem; height: .56rem; padding: 0 .14rem;
+  background: rgba(10, 14, 12, .9); border: 2px solid var(--line-2); color: var(--text-hi);
+  font-size: .18rem; font-weight: 700; letter-spacing: .08em; white-space: nowrap;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.autoarrbtn .icon { width: .22rem; height: .22rem; color: var(--mint-400); }
+.autoarrbtn:hover:not(:disabled) { background: rgba(78, 216, 175, .14); border-color: var(--mint-500); }
+.autoarrbtn.is-busy, .autoarrbtn:disabled { opacity: .6; cursor: progress; }
 
 /* ---- bond strip ---------------------------------------------------------------------------------------- */
 .gm__bonds { position: absolute; left: 1.56rem; top: 1.36rem; right: 5.2rem; pointer-events: none;

@@ -9,8 +9,28 @@ import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO } from '../../../shared/cons
 import { deriveSeed } from '../../sim/rng.js';
 import { OK, fail } from './common.js';
 import { onHumanEmote } from '../botEmotes.js';
+import { recommendLayout } from '../bot.js';
+
+/** Minimum time between two 一键站位 of one player (ms): each one plans and rehearses several layouts. */
+export const AUTO_ARRANGE_COOLDOWN_MS = 1500;
 
 export class MatchIntents {
+  /**
+   * g.autoArrange — 一键站位 (prep, the player's own board; bot.js recommendLayout). Refused outside the prep, for an
+   * eliminated player, while ready (the board is locked in) and within AUTO_ARRANGE_COOLDOWN_MS of the last one.
+   */
+  autoArrange(ps) {
+    const g = ps._gate(); if (g) return g;
+    const now = this.sched.now();
+    if (Number.isFinite(ps._autoArrangeAt) && now - ps._autoArrangeAt < AUTO_ARRANGE_COOLDOWN_MS) return fail(ERR.RATE);
+    ps._autoArrangeAt = now;
+    let placed = false;
+    try { placed = recommendLayout(this, ps); } catch (e) { this.reportError('autoArrange', e); return fail(ERR.INTERNAL); }
+    if (!placed) return fail(ERR.BAD_TARGET, 'no operators on the board');
+    ps.dirty();
+    return OK;
+  }
+
   _handle(ps, msg) {
     switch (msg.t) {
       case 'g.infoReady':
@@ -39,6 +59,8 @@ export class MatchIntents {
         ? this.pickPersonalChoice(ps, msg.idx, msg.choiceId)
         : this.pickCard(ps, msg.idx);
       case 'g.ready': return ps.setReady(!!msg.ready);
+      // 一键站位: the AI planner re-places the operators already on the board (fewest rehearsed leaks)
+      case 'g.autoArrange': return this.autoArrange(ps);
       case 'g.emote': return this.emote(ps, msg.id);
       // playerId: the player tapped (a shared field names two) — the watch preference (item 56)
       case 'g.watch': return this.watch(ps, msg.fieldId, msg.playerId ?? null);

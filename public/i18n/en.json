@@ -1229,5 +1229,7 @@
   "已提交给AI学习": "Submitted for AI training",
   "提交失败，点击重试": "Submit failed — click to retry",
   "提交给AI学习": "Submit for AI training",
-  "下载操作记录": "Download action log"
+  "下载操作记录": "Download action log",
+  "AI站位": "Auto Deploy",
+  "AI 按最少漏怪重新摆放场上干员（试演本回合敌人）": "AI re-places the deployed operators to leak the fewest enemies (rehearses this round's wave)"
 }

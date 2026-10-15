@@ -8,6 +8,13 @@ import { PHASE } from '../../../shared/constants.js';
 import { DeadBattle, syntheticResult, RESULT_GRACE_MS, HARD_CAP_SECONDS, HeadlessJob } from '../fields.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../sim/spec.js';
 
+/**
+ * 加速 (AI 队友战斗加速): once no human battle of a 各自行动 / 联防 phase is still running, the server-run fields left (AI
+ * teammates', departed players') play out this many times faster — their results (simulated headlessly at once) are
+ * released sooner, the progress UI and every replica watching follow the faster field clock. 1 = off.
+ */
+export const BOT_WARP_FACTOR = 4;
+
 export class MatchClientCombat {
   /** Stop every client-combat timer and the headless pacer (phase end, finish, dispose). */
   _stopClientCombat() {
@@ -68,10 +75,44 @@ export class MatchClientCombat {
   /** Game seconds a field has run (its clock; a finished field: its final time). */
   _fieldElapsed(f) {
     if (f.done && f.result && Number.isFinite(f.result.time)) return f.result.time;
-    const gt = Math.max(0, ((this._clockNow() - f.startAt) / 1000) * this.gameSpeed);
+    // a warped field (加速, _maybeWarpFields): the clock runs factor× from the game time it had when the warp began
+    const gt = f.warp
+      ? f.warp.gt + Math.max(0, ((this._clockNow() - f.warp.at) / 1000) * this.gameSpeed * f.warp.factor)
+      : Math.max(0, ((this._clockNow() - f.startAt) / 1000) * this.gameSpeed);
     if (f.endGt != null) return Math.min(gt, f.endGt);
     const lim = f.spec && f.spec.timeLimit > 0 ? f.spec.timeLimit : HARD_CAP_SECONDS;
     return Math.min(gt, lim);
+  }
+
+  /** Game seconds per real second of a field's clock (the match speed; × the warp factor once warped). */
+  _fieldSpeed(f) {
+    return this.gameSpeed * (f && f.warp ? f.warp.factor : 1);
+  }
+
+  /**
+   * 加速: no human battle of the phase is left (every field is done or run by the server) and someone is shown a field
+   * → each remaining server-run normal / 联防 field warps (BOT_WARP_FACTOR): its clock is re-anchored at the current game
+   * time, its result release re-armed and its viewers get a b.start with the new speed (the replica re-anchors). Boss
+   * fields never warp (the shared pool runs in real time). Idempotent; off in virtual-time (instant) runs.
+   */
+  _maybeWarpFields() {
+    if (!(BOT_WARP_FACTOR > 1) || this.sched.instant || this.paused) return;
+    if (this.phase !== PHASE.COMBAT && this.phase !== PHASE.UNITE) return;
+    const cc = this.fields.filter((f) => f && f.cc);
+    if (!cc.length || cc.length !== this.fields.length) return;
+    if (cc.some((f) => !f.done && f.mode !== 'server')) return;
+    if (!this._viewers().some((ps) => ps.connected)) return;
+    const now = this._clockNow();
+    let any = false;
+    for (const f of cc) {
+      if (f.done || f.warp || f.kind === 'boss' || f.kind === 'hidden') continue;
+      const gt = this._fieldElapsed(f);
+      f.warp = { at: now, gt, factor: BOT_WARP_FACTOR };
+      any = true;
+      if (f.result != null) this._armRelease(f);
+      for (const pid of this._humansShowing(f)) this._sendStart(pid, f, { watch: !f.players.includes(pid) });
+    }
+    if (any) this.markPublic();
   }
 
   /** The connected human who simulates a field: lowest seat among its players (normal: the owner). */
@@ -93,7 +134,7 @@ export class MatchClientCombat {
       spec: this.spectators.has(pid) ? this._spectatorSpec(f) : f.spec,
       authoritative: !!(!f.done && !f.verifyJob && f.mode === 'client' && f.authority === pid && !watch),
       startAt: f.startAt, serverNow: this.sched.now(), elapsed: Math.round(this._fieldElapsed(f) * 1000) / 1000,
-      speed: this.gameSpeed, watch: !!watch, done: !!f.done,
+      speed: this._fieldSpeed(f), watch: !!watch, done: !!f.done,
     };
   }
 
@@ -113,6 +154,8 @@ export class MatchClientCombat {
       if (auth) this._assignClient(f, auth);
       else this._runOnServer(f, 'no-human');
     }
+    // nobody fights this phase (every human eliminated / departed, spectators watching): the AI fields warp at once
+    this._maybeWarpFields();
   }
 
   _assignClient(f, pid) {
@@ -143,7 +186,9 @@ export class MatchClientCombat {
     if (f.doneTimer) { this.cancel(f.doneTimer); f.doneTimer = null; }
     if (f.done || f.result == null) return;
     if (this.paused) { f.rearmRelease = true; return; }
-    const doneAt = f.startAt + Math.round(((f.endGt || 0) / this.gameSpeed) * 1000);
+    const doneAt = f.warp
+      ? f.warp.at + Math.round((Math.max(0, (f.endGt || 0) - f.warp.gt) / (this.gameSpeed * f.warp.factor)) * 1000)
+      : f.startAt + Math.round(((f.endGt || 0) / this.gameSpeed) * 1000);
     const wait = this.sched.instant ? 0 : Math.max(0, doneAt - this.sched.now());
     f.doneTimer = this.later(wait, () => { f.doneTimer = null; this._fieldDone(f); });
   }
@@ -219,6 +264,7 @@ export class MatchClientCombat {
     if (!f.result) f.result = syntheticResult(f.players, { bossBy: f.bossBy });
     f.progress.done = true;
     this.markPublic();
+    this._maybeWarpFields();
     this._maybeFieldsDone();
   }
 
@@ -237,5 +283,6 @@ export class MatchClientCombat {
       if (f.kind === 'boss' || f.kind === 'hidden') this._bossHandover(f, why);
       else this._runOnServer(f, why);
     }
+    this._maybeWarpFields();
   }
 }

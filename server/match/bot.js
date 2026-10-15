@@ -2382,6 +2382,29 @@ export function arrange(m, ps, opts = {}) {
   return runSteps(arrangeSteps(m, ps, opts));
 }
 
+/**
+ * 一键站位 (g.autoArrange, a human's prep): the operators the player has on the board are re-placed by the AI planner
+ * (planLayout: route coverage, blockers, ranges, facings) and — when this round's enemies are known — the candidate
+ * layouts are rehearsed with the real Battle (createRehearsal: a rehearsal seed, no side effect on the match) and the one
+ * with the fewest counted leaks (then most kills) is kept. Only tiles and facings change: nothing is sold, bought, taken
+ * off the board or swapped in from the bench (summons are re-placed beside their operators). false: nothing deployed.
+ */
+export function recommendLayout(m, ps) {
+  return runSteps(recommendLayoutSteps(m, ps));
+}
+
+export function* recommendLayoutSteps(m, ps) {
+  const chosen = [...ps.board.values()].filter((p) => p && p.kind === 'chess');
+  if (!chosen.length) return false;
+  const plans = [yield* planLayoutSteps(m, ps, chosen)];
+  if ((m.wave || (pol(m).bossRehearsalPlans > 0 && m.bossGroupOf?.(ps))) && m.botRehearsal > 0) {
+    for (const v of REHEARSAL_VARIANTS.slice(1)) plans.push(yield* planLayoutSteps(m, ps, chosen, { ...LAYOUT_PARAMS, ...v }));
+  }
+  const target = plans.length > 1 ? rehearse(m, ps, chosen, plans) : plans[0];
+  yield* applyPlanSteps(m, ps, chosen, target);
+  return true;
+}
+
 /** arrange as a step generator (yields inside the layout planning, see planLayoutSteps). */
 export function* arrangeSteps(m, ps, { final = false, defer = false } = {}) {
   const ctx = context(m, ps);

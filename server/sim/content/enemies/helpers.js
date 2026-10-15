@@ -295,7 +295,13 @@ export function spawnChildren(b, parent, key, n, opts = {}) {
       pos, route, mods, tag: opts.tag ?? null, countInTotal: opts.countInTotal,
       ownerPlayerId: parent.ownerId ?? null, sourcePlayerId: parent.sourcePlayerId ?? null,
     });
-    if (c) out.push(c);
+    if (c) {
+      // 联防 本体击杀免责 (Battle._absolveRoot): a child remembers the body it descends from; one spawned by (or after)
+      // the body's knock-down on a unite field is absolved at once
+      c.rootId = parent.rootId ?? parent.id;
+      c.absolved = !!parent.absolved || !!(b._absolvedRoots && b._absolvedRoots.has(c.rootId));
+      out.push(c);
+    }
   }
   if (out.length) b.fx('summon', { x: parent.x, y: parent.y, id: parent.id, key, n: out.length });
   return out;

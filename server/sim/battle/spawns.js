@@ -129,6 +129,10 @@ export class BattleSpawns {
     e.tag = opts.tag ?? null;
     e.bounty = opts.bounty ?? null;
     e.sourcePlayerId = opts.sourcePlayerId ?? null;
+    // 联防 本体击杀免责 (Battle._absolveRoot): the body a content-spawned child descends from (spawnChildren) and whether
+    // that body was knocked down on this unite field — then the child costs its source player nothing
+    e.rootId = null;
+    e.absolved = false;
     e.ownerId = opts.ownerPlayerId ?? this._ownerForTile(start);
     e.spawnX = e.x; e.spawnY = e.y;
     e.spawnSeq = ++this._spawnSeq;

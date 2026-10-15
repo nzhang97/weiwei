@@ -266,7 +266,8 @@ export function uniteLeft(battle) {
   }
   if (!battle._perPlayer || !Array.isArray(battle._pending) || !Array.isArray(battle.enemies)) return null;
   for (const p of battle._pending) if (p) add(p.sourcePlayerId);
-  for (const e of battle.enemies) if (e && e.alive && e.counted) add(e.sourcePlayerId ?? e.ownerId);
+  // an absolved child (its body fell on this field — Battle._absolveRoot) costs nobody
+  for (const e of battle.enemies) if (e && e.alive && e.counted && !e.absolved) add(e.sourcePlayerId ?? e.ownerId);
   for (const pp of Object.values(battle._perPlayer)) for (const l of (pp && pp.leaked) || []) if (l && l.counted !== false) add(l.sourcePlayerId);
   return out;
 }
@@ -390,6 +391,8 @@ export function compactResult(res) {
         const o = { enemyKey: l.enemyKey, mods: compactMods(l.mods), lpr: leakLpr(l), sourcePlayerId: keyOr(l.sourcePlayerId), tag: typeof l.tag === 'string' && l.tag.length <= 16 ? l.tag : null, counted: l.counted !== false };
         if (l.boss) o.boss = true;
         if (l.spawned) o.spawned = true;
+        // 联防 本体击杀免责 (Battle._absolveRoot): no source player — it costs nobody LP
+        if (l.absolved === true) o.absolved = true;
         return o;
       }),
       perfect: !!p.perfect,
