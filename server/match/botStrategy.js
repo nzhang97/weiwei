@@ -214,6 +214,30 @@ export function driveLayers(m, ps, drive, ownL = null) {
   return s;
 }
 
+/**
+ * How much one layer of a bond is worth in a leader fight (最终攻势 / 隐秘核心), relative to the best: measured on 74
+ * captured 隐秘核心 fights of co-op ABYSS (2026-10-16, tools: hcsim counterfactuals, +100 layers on one active bond):
+ * 灵巧 / 叙拉古 / 精准 / 奥术 ≈ +5.5 % of the leader bar, 谢拉格 5.2, 不屈 / 坚守 4.4, 维多利亚 3.3, 卡西米尔 2.4, 迅捷 /
+ * 阿戈尔 / 炎 / 突袭 ≈ 2, 萨尔贡 1.1, 拉特兰 0.6, 助力 0.3; economy bonds (奇迹 远见 投资人 绝技 独行 调和) 0.
+ */
+export const COMBAT_LAYER_VALUE = Object.freeze({
+  skillfulShip: 1, siracusaShip: 1, preciShip: 1, arcaneShip: 1, kjeragShip: 0.95, indomShip: 0.8, steadShip: 0.8,
+  victoriaShip: 0.6, kazimierzShip: 0.45, swiftShip: 0.4, egirShip: 0.4, yanShip: 0.35, raidShip: 0.35,
+  sargonShip: 0.2, lateranoShip: 0.1, deputShip: 0.05,
+});
+
+/**
+ * botPolicy.combatLayerDrive { from, mul, table? } (default off): from round `from` a layer of bond `id` is worth
+ * 1 + (mul − 1) × COMBAT_LAYER_VALUE[id] times as much — layers that make the leader fights shorter (the 最终攻势 and the
+ * 隐秘核心 are lost to the overtime drain: the team LP runs out with half the bar left). Economy bonds keep 1×.
+ */
+export function combatLayerFactor(m, id) {
+  const C = (m.botPolicy || BOT_POLICY).combatLayerDrive;
+  if (!C || !(m.round >= (C.from ?? 9))) return 1;
+  const v = (C.table && Number.isFinite(C.table[id]) ? C.table[id] : COMBAT_LAYER_VALUE[id]) || 0;
+  return 1 + Math.max(0, (C.mul ?? 1) - 1) * v;
+}
+
 /** Value only layers that can matter to this lineup; unactivated layers persist, but are speculative. */
 export function layerValue(m, ps, id, amount, bonds = ps.bonds) {
   if (!(ps?.gd || m.gd).bond(id) || (ps?.gd || m.gd).modeInactiveBonds.has(id)) return 0;
@@ -226,7 +250,7 @@ export function layerValue(m, ps, id, amount, bonds = ps.bonds) {
   const driving = !!drive && m.round >= (drive.from ?? 9) && m.round <= (ps?.gd || m.gd).bossRound && typeof ps.activatedLayers === 'function' && driveLayers(m, ps, drive) <= drive.threshold;
   const asCore = (ps?.gd || m.gd).bond(id).isCore || (driving && drive.addonAsCore);
   const priority = asCore ? (ps._botCore?.id === id ? 1.3 : 1) * (m.botPolicy || BOT_POLICY).coreLayerValueMul : 0.8;
-  return n * weight * priority * (driving ? drive.mul ?? 1 : 1) * (asCore ? phaseLayerWeights(m).core : phaseLayerWeights(m).addon) * (0.35 + Math.min(8, future(m)) * 0.035);
+  return n * weight * priority * (driving ? drive.mul ?? 1 : 1) * combatLayerFactor(m, id) * (asCore ? phaseLayerWeights(m).core : phaseLayerWeights(m).addon) * (0.35 + Math.min(8, future(m)) * 0.035);
 }
 
 /** Probability layers stop helping at 100%; threshold credit is bounded and never invents grants. */
