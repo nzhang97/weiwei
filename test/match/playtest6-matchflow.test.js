@@ -407,7 +407,7 @@ test('#7 uniteLeft (sim) = each source\'s enemies unspawned + alive + through ag
   h.m.dispose();
 });
 
-test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) raises the counter — the children are billed to the same leaker; the clamp is what settlement can bill, not what was sent in', () => {
+test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) on the 联防 field: the body falls to the helpers, so its children cost the leaker nothing (本体击杀免责) — the counter never rises above what was sent in', () => {
   const MOLONG = 'enemy_1195_sfyin';
   const SENT = 4;
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, seed: 710, instant: false });
@@ -422,25 +422,23 @@ test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) raises the counter �
   for (let i = 0; i < 4000 && m.phase === PHASE.UNITE; i++) {
     const p = pubOf(m, 'p_1');
     if (!b.finished) {
-      const alive = b.enemies.filter((e) => e.alive && e.counted && e.sourcePlayerId === 'p_1').length;
+      // an absolved child (its body was knocked down here: Battle._absolveRoot) is nobody's enemy any more
+      const alive = b.enemies.filter((e) => e.alive && e.counted && !e.absolved && e.sourcePlayerId === 'p_1').length;
       const pending = b._pending.filter((x) => x.sourcePlayerId === 'p_1').length;
-      const through = Object.values(b._perPlayer).flatMap((pp) => pp.leaked).filter((l) => l.counted !== false && l.sourcePlayerId === 'p_1').length;
-      assert.equal(p.uniteLeft, pending + alive + through, 'm.public = the leaker\'s enemies standing on the field, children included');
+      const through = Object.values(b._perPlayer).flatMap((pp) => pp.leaked).filter((l) => l.counted !== false && !l.absolved && l.sourcePlayerId === 'p_1').length;
+      assert.equal(p.uniteLeft, pending + alive + through, 'm.public = the leaker\'s enemies still charged to it');
     }
     seen.push(p.uniteLeft);
     h.sched.advance(500);
   }
   // the split children are runtime spawns: they enter neither part of the HUD capsule (PR #157: the denominator counts
-  // only what the 联防 scheduled — `b.total` — and the numerator only that set's own knock-outs / leaks), while the
-  // 联防 live counter (m.public uniteLeft) still bills them to the leaker
-  const kids = b.units.filter((u) => u.side === 'enemy' && !u.inTotal).length;
-  assert.ok(kids > 0, `the 磨砻 split into ${kids} runtime children`);
+  // only what the 联防 scheduled — `b.total` — and the numerator only that set's own knock-outs / leaks)
+  const kids = b.units.filter((u) => u.side === 'enemy' && !u.inTotal);
+  assert.ok(kids.length > 0, `the 磨砻 split into ${kids.length} runtime children`);
+  assert.ok(kids.every((u) => u.absolved), 'every child of a body the helpers knocked down is absolved');
   assert.equal(b.total, SENT, `the children stay out of the capsule's denominator (total = the ${SENT} the 联防 scheduled)`);
   assert.equal(b.resolved, Math.min(SENT, b.killedInTotal + b.leakedInTotal), 'the capsule numerator counts only the 联防\'s own enemies');
-  const rises = seen.filter((v, i) => i > 0 && v > seen[i - 1]).length;
-  assert.ok(rises > 0, `the counter rose after a split: ${seen.filter((v, i) => i === 0 || v !== seen[i - 1]).join(' → ')}`);
-  assert.ok(Math.max(...seen) > SENT, 'above the number sent in (the old clamp hid it)');
-  assert.ok(Math.max(...seen) <= SENT * 3, 'within what 4 磨砻 can leave behind (2 each)');
+  assert.ok(Math.max(...seen) <= SENT, `the children never raise the counter: ${seen.filter((v, i) => i === 0 || v !== seen[i - 1]).join(' → ')}`);
   const last = seen[seen.length - 1];
   toSettled(h);
   assert.equal(lp - leaker.lp, Math.min(10, last), `settled LP loss = min(10, ${last} left)`);
