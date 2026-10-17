@@ -9,25 +9,71 @@ import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO } from '../../../shared/cons
 import { deriveSeed } from '../../sim/rng.js';
 import { OK, fail } from './common.js';
 import { onHumanEmote } from '../botEmotes.js';
-import { recommendLayout } from '../bot.js';
+import { recommendLayoutSteps } from '../bot.js';
+import { msg } from '../../../shared/i18n.js';
 
 /** Minimum time between two 一键站位 of one player (ms): each one plans and rehearses several layouts. */
 export const AUTO_ARRANGE_COOLDOWN_MS = 1500;
+
+/** The 「AI站位」 result line (the chosen layout's rehearsal estimate), null without a rehearsal. */
+export function autoArrangeNote({ goal, metrics, swapped = 0 } = {}) {
+  if (!metrics) return null;
+  const p = { leaks: metrics.leaks, bounty: metrics.bountyLeaks, killed: metrics.killed, layers: metrics.layers, funds: Math.round(metrics.funds), swapped };
+  if (goal === 'layers') return swapped > 0 ? msg('叠层优先：预计叠层 +{layers}，漏怪 {leaks}，换上整备区干员 {swapped} 名', p) : msg('叠层优先：预计叠层 +{layers}，漏怪 {leaks}', p);
+  if (goal === 'economy') return swapped > 0 ? msg('经济优先：预计收益约 {funds} 资金，漏怪 {leaks}，换上整备区干员 {swapped} 名', p) : msg('经济优先：预计收益约 {funds} 资金，漏怪 {leaks}', p);
+  return swapped > 0 ? msg('战斗力优先：预计漏怪 {leaks}（赏金怪 {bounty}），击杀 {killed}，换上整备区干员 {swapped} 名', p) : msg('战斗力优先：预计漏怪 {leaks}（赏金怪 {bounty}），击杀 {killed}', p);
+}
 
 export class MatchIntents {
   /**
    * g.autoArrange — 一键站位 (prep, the player's own board; bot.js recommendLayout). Refused outside the prep, for an
    * eliminated player, while ready (the board is locked in) and within AUTO_ARRANGE_COOLDOWN_MS of the last one.
+   * goal: 'combat' 战斗力优先 | 'layers' 叠层优先 | 'economy' 经济优先 (absent ⇒ the bot's own ranking); bench: the hand's
+   * operators may be swapped in (botLayoutGoals.js). The reply carries the chosen layout's rehearsal metrics.
    */
-  autoArrange(ps) {
+  autoArrange(ps, { goal = null, bench = false } = {}) {
     const g = ps._gate(); if (g) return g;
     const now = this.sched.now();
+    if (ps._autoArrangeRunning) return fail(ERR.RATE, 'auto deploy in progress');
     if (Number.isFinite(ps._autoArrangeAt) && now - ps._autoArrangeAt < AUTO_ARRANGE_COOLDOWN_MS) return fail(ERR.RATE);
+    const deployed = [...ps.board.values()].some((p) => p && p.kind === 'chess');
+    if (!deployed && !(bench && ps.allChess().length)) return fail(ERR.BAD_TARGET, 'no operators on the board');
     ps._autoArrangeAt = now;
-    let placed = false;
-    try { placed = recommendLayout(this, ps); } catch (e) { this.reportError('autoArrange', e); return fail(ERR.INTERNAL); }
-    if (!placed) return fail(ERR.BAD_TARGET, 'no operators on the board');
-    ps.dirty();
+    // planned and rehearsed in bounded slices like a bot's prep (Match.botSliceMs; virtual time: at once), so a late
+    // round's 1–3 s of rehearsal never blocks the server; the result line is a toast once it is applied
+    const bounded = Number.isFinite(this.botSliceMs);
+    const round = this.round;
+    const token = (ps._autoArrangeToken = (ps._autoArrangeToken || 0) + 1);
+    const valid = () => this.phase === PHASE.PREP && this.round === round && ps.alive && !ps.ready && ps._autoArrangeToken === token;
+    const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    let gen;
+    try { gen = recommendLayoutSteps(this, ps, { goal, bench: !!bench, sliceMs: bounded ? this.botSliceMs : Infinity }); } catch (e) { this.reportError('autoArrange', e); return fail(ERR.INTERNAL); }
+    let failed = false;
+    const finish = (placed) => {
+      ps._autoArrangeRunning = false;
+      if (!placed) return;
+      ps.dirty();
+      const note = typeof placed === 'object' ? autoArrangeNote(placed) : null;
+      if (note) this.toast(ps, 'info', note);
+    };
+    const drive = () => {
+      if (!valid()) { ps._autoArrangeRunning = false; return; }
+      const t0 = clock();
+      let r;
+      try {
+        do r = gen.next(); while (!r.done && !(bounded && clock() - t0 >= this.botSliceMs));
+      } catch (e) {
+        ps._autoArrangeRunning = false;
+        failed = true;
+        this.reportError('autoArrange', e);
+        return;
+      }
+      if (r.done) finish(r.value);
+      else this.later(0, drive);
+    };
+    ps._autoArrangeRunning = true;
+    drive();
+    if (failed) return fail(ERR.INTERNAL);
     return OK;
   }
 
@@ -60,7 +106,7 @@ export class MatchIntents {
         : this.pickCard(ps, msg.idx);
       case 'g.ready': return ps.setReady(!!msg.ready);
       // 一键站位: the AI planner re-places the operators already on the board (fewest rehearsed leaks)
-      case 'g.autoArrange': return this.autoArrange(ps);
+      case 'g.autoArrange': return this.autoArrange(ps, { goal: msg.goal ?? null, bench: !!msg.bench });
       case 'g.emote': return this.emote(ps, msg.id);
       // playerId: the player tapped (a shared field names two) — the watch preference (item 56)
       case 'g.watch': return this.watch(ps, msg.fieldId, msg.playerId ?? null);

@@ -99,6 +99,7 @@ import { HOVER_KEYS } from '../sim/content/enemies.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
 import { BOT_POLICY } from './botPolicy.js';
 import { createBossRehearsalSteps } from './botBoss.js';
+import { layoutGoal, dryRunPrepTraits, goalScore } from './botLayoutGoals.js';
 import { relayCarryValue, relayUpgradeWanted, createRelayRehearsal, relayDefenseValue } from './botTeam.js';
 import { bandScore, hiddenDrive, driveLayers, gainCountValue, corePlan, coreReserveValue, coreUpgradeWanted, economyRecruitValue, garrisons, lineupState, layerValue, traitValue, recurringValue, combatBondValue, combatRecord, benchValue, refreshValue as strategyRefreshValue, bestEquipmentTarget } from './botStrategy.js';
 
@@ -1426,31 +1427,35 @@ function countedLeaks(battle, playerId) {
  * @returns {null | { chosen: any[], plans: Array<Map<number, string>>, best: Map<number, string>, done: boolean, run: (budgetMs?: number) => boolean }}
  *   null when there is nothing to compare (no wave, < 2 distinct plans, rehearsal off)
  */
-export function createRehearsal(m, ps, chosen, plans) {
-  return runSteps(createRehearsalSteps(m, ps, chosen, plans));
+export function createRehearsal(m, ps, chosen, plans, goal = null) {
+  return runSteps(createRehearsalSteps(m, ps, chosen, plans, goal));
 }
 
 /**
  * createRehearsal as a step generator: yields after each candidate's Battle is built. Each candidate puts its layout on
  * the board, takes the battle input and restores the board exactly before the next yield — a bot prep dropped between
  * two steps (the prep ended) never leaves a rehearsal layout on the board.
+ * `goal` (the 「AI站位」 tendencies, botLayoutGoals.js): { score(pp, measured, i) → number, measure?(m, ps) → any, limit? }
+ * ranks the candidates by its own score instead (no leak pruning, no relay, one seed; `measure` runs while the
+ * candidate layout is on the board); the job then also carries `scores` (per candidate, null if it failed).
  */
-export function* createRehearsalSteps(m, ps, chosen, plans) {
+export function* createRehearsalSteps(m, ps, chosen, plans, goal = null) {
   if (!m.wave && pol(m).bossRehearsalPlans > 0 && m.bossGroupOf?.(ps))
     return yield* createBossRehearsalSteps(m, ps, chosen, distinctPlans(plans));
   const wave = m.wave;
   const distinct = distinctPlans(plans);
-  if (!wave || distinct.length < 2 || !(m.botRehearsal > 0)) return null;
+  if (!wave || distinct.length < 2 || !(goal || m.botRehearsal > 0)) return null;
   const extra = Math.max(0, Math.min(5, Math.floor(pol(m).extraRehearsalPlans ?? 0)));
-  const cands = distinct.slice(0, Math.min(8, m.botRehearsal + extra));
+  const cands = distinct.slice(0, goal ? Math.max(2, Math.min(12, Math.floor(goal.limit ?? 8))) : Math.min(8, m.botRehearsal + extra));
   const byUid = new Map(ps.allChess().concat(chosen).map((p) => [p.uid, p]));
   const battles = [];
   const candidateBonds = [];
   const candidateInputs = [];
   // botPolicy.robustRehearsalSeeds N > 1: each candidate is judged on N rehearsal seeds (sum of counted leaks), so a
   // single seed's chaotic divergence (≈0.9 leaks SD in late rounds) does not pick the layout. 1 = the original path.
-  const robustN = Math.max(1, Math.min(4, Math.floor(pol(m).robustRehearsalSeeds ?? 1)));
+  const robustN = goal ? 1 : Math.max(1, Math.min(4, Math.floor(pol(m).robustRehearsalSeeds ?? 1)));
   const candidateOpts = [];
+  const measured = [];
   for (const plan of cands) {
     const saved = [...ps.board.entries()];
     const savedHand = ps.hand.slice();
@@ -1468,6 +1473,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
       // Existing owned summon pieces are included in rehearsal; relocating one must not grant new pieces/UIDs.
       for (const [k, token] of saved) if (token.kind === 'token' && plan.has(token.ownerUid) && !ps.board.has(k)) ps.board.set(k, token);
       ps.recompute();
+      if (goal) measured.push(typeof goal.measure === 'function' ? goal.measure(m, ps) : null);
       const input = ps.battleInput({ side: 'L', colOffset: 0 });
       // This read-only handler supplies hand counts and team strategies (including Touch) used by combat content.
       m.registry.get('global:contentb_info')?.onBattleStart(makeCtx(m, ps, {}, 'onBattleStart'), { input, kind: 'normal' });
@@ -1509,6 +1515,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
     plans: cands,
     best: cands[0],
     done: false,
+    scores: goal ? cands.map(() => null) : undefined,
     run(budgetMs = Infinity) {
       const timed = Number.isFinite(budgetMs);
       const t0 = timed ? performance.now() : 0;
@@ -1524,14 +1531,20 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
             battle.step();
             t++;
             n++;
-            if (!relayPending && (t & 63) === 0 && bestLeaks < Infinity && countedLeaks(battle, ps.playerId) > bestLeaks) { beaten = true; break; }
+            if (!goal && !relayPending && (t & 63) === 0 && bestLeaks < Infinity && countedLeaks(battle, ps.playerId) > bestLeaks) { beaten = true; break; }
             if (timed && (n & 3) === 0 && performance.now() - t0 >= budgetMs) return false;
           }
           if (!beaten) {
             if (!battle.finished) battle.forceEnd('timeout');
             const r = battle.result();
             const pp = r && !r.synthetic && r.perPlayer && r.perPlayer[ps.playerId];
-            if (relayPending) {
+            if (goal) {
+              if (pp) {
+                const score = goal.score(pp, measured[i], i) - i * 0.0001;
+                job.scores[i] = score;
+                if (score > bestScore) { bestScore = score; job.best = cands[i]; job.chosen = [...cands[i].keys()].map((uid) => byUid.get(uid)).filter(Boolean); }
+              }
+            } else if (relayPending) {
               const score = relayPending.score + relayDefenseValue(r, relayPending.count, m);
               if (score > bestScore) { bestScore = score; bestLeaks = 0; job.best = cands[i]; job.chosen = [...cands[i].keys()].map((uid) => byUid.get(uid)).filter(Boolean); }
               relayPending = null;
@@ -1624,8 +1637,8 @@ function robustRehearsalJob(m, ps, chosen, cands, firstBattles, opts, bonds, byU
  * Synchronous rehearsal (tools, tests): see createRehearsal. The board is restored exactly afterwards.
  * @returns {Map<number, string>} the chosen plan
  */
-export function rehearse(m, ps, chosen, plans) {
-  const job = createRehearsal(m, ps, chosen, plans);
+export function rehearse(m, ps, chosen, plans, goal = null) {
+  const job = createRehearsal(m, ps, chosen, plans, goal);
   if (!job) return distinctPlans(plans)[0] || plans[0];
   job.run();
   return job.best;
@@ -2384,26 +2397,256 @@ export function arrange(m, ps, opts = {}) {
 }
 
 /**
- * 一键站位 (g.autoArrange, a human's prep): the operators the player has on the board are re-placed by the AI planner
- * (planLayout: route coverage, blockers, ranges, facings) and — when this round's enemies are known — the candidate
- * layouts are rehearsed with the real Battle (createRehearsal: a rehearsal seed, no side effect on the match) and the one
- * with the fewest counted leaks (then most kills) is kept. Only tiles and facings change: nothing is sold, bought, taken
- * off the board or swapped in from the bench (summons are re-placed beside their operators). false: nothing deployed.
+ * 一键站位 (g.autoArrange, a human's prep): the AI planner (planLayout: route coverage, blockers, ranges, facings) lays
+ * the player's operators out and — when this round's enemies are known — the candidate layouts are rehearsed with the
+ * real Battle (createRehearsal: a rehearsal seed, no side effect on the match).
+ *
+ * opts.goal (botLayoutGoals.js; absent ⇒ the bot's own ranking: fewest counted leaks, then kills):
+ *   'combat'  战斗力优先 — weighted leaks (a bounty enemy counts BOUNTY_LEAK_WEIGHT), then kills;
+ *   'layers'  叠层优先   — rehearsed in-battle layer gains + the layout's prep 特质 layers (dry run);
+ *   'economy' 经济优先   — funds-equivalent next-round income (bounty coins, 特质 funds / free refreshes / equipment /
+ *                          operators with their 三合一 value, 远见 / 奇迹 layer funds).
+ * Boss-fight rounds rank by the boss rehearsal (combat) whatever the goal.
+ * opts.bench: the hand's operators may be swapped in as well (the bot's own lineup choice and, for layers / economy, the
+ * swaps whose 特质 yield the most in this layout); false = only the operators already on the board are re-placed.
+ * Nothing is ever sold or bought. Returns false when there is nothing to deploy, else { goal, bench, metrics, swapped }
+ * (metrics: the chosen layout's { leaks, bountyLeaks, killed, layers, funds } when it was rehearsed).
  */
-export function recommendLayout(m, ps) {
-  return runSteps(recommendLayoutSteps(m, ps));
+export function recommendLayout(m, ps, opts = {}) {
+  return runSteps(recommendLayoutSteps(m, ps, opts));
 }
 
-export function* recommendLayoutSteps(m, ps) {
-  const chosen = [...ps.board.values()].filter((p) => p && p.kind === 'chess');
-  if (!chosen.length) return false;
-  const plans = [yield* planLayoutSteps(m, ps, chosen)];
-  if ((m.wave || (pol(m).bossRehearsalPlans > 0 && m.bossGroupOf?.(ps))) && m.botRehearsal > 0) {
-    for (const v of REHEARSAL_VARIANTS.slice(1)) plans.push(yield* planLayoutSteps(m, ps, chosen, { ...LAYOUT_PARAMS, ...v }));
+export function* recommendLayoutSteps(m, ps, opts = {}) {
+  const goalId = opts.goal ? layoutGoal(opts.goal) : null;
+  const bench = !!opts.bench;
+  const board = [...ps.board.values()].filter((p) => p && p.kind === 'chess');
+  const bossRound = !m.wave && pol(m).bossRehearsalPlans > 0 && !!m.bossGroupOf?.(ps);
+  const canRehearse = !!(m.wave || bossRound) && (goalId != null || m.botRehearsal > 0);
+  const sets = [];
+  const seen = new Set();
+  const addSet = (set) => {
+    const sig = set.map((p) => p.uid).sort((a, b) => a - b).join(',');
+    if (set.length && !seen.has(sig)) { seen.add(sig); sets.push(set); }
+  };
+  addSet(board);
+  if (bench) {
+    const ctx = context(m, ps);
+    const lineup = chooseLineup(m, ps, ctx);
+    if (!board.length || lineup.set.length >= board.length) addSet(lineup.set);
+    if (goalId === 'layers' || goalId === 'economy') {
+      const base = sets[sets.length - 1] || lineup.set;
+      if (base.length) {
+        const plan0 = yield* planLayoutSteps(m, ps, base);
+        for (const set of goalLineups(m, ps, base, plan0, goalId)) addSet(set);
+      }
+    }
   }
-  const target = plans.length > 1 ? rehearse(m, ps, chosen, plans) : plans[0];
+  if (!sets.length) return false;
+  const plans = [];
+  for (let si = 0; si < sets.length; si++) {
+    plans.push(yield* planLayoutSteps(m, ps, sets[si]));
+    if (!canRehearse) continue;
+    // the board's own operators get every layout variant; an alternative roster two of them
+    const variants = si === 0 ? REHEARSAL_VARIANTS.slice(1) : REHEARSAL_VARIANTS.slice(1, 3);
+    for (const v of variants) plans.push(yield* planLayoutSteps(m, ps, sets[si], { ...LAYOUT_PARAMS, ...v }));
+  }
+  // layers / economy: goal-refined versions of the first layouts join the candidates (right after their source plan)
+  if ((goalId === 'layers' || goalId === 'economy') && plans.length) {
+    const refined = [];
+    for (const src of [plans[0], plans[1]].filter(Boolean)) {
+      yield;
+      const q = refineForGoal(m, ps, src, goalId);
+      if (q) refined.push(q);
+    }
+    plans.splice(1, 0, ...refined);
+  }
+  let target = plans[0];
+  let metrics = null;
+  if (goalId && m.wave && plans.length > 1) {
+    const metricsOf = [];
+    const goal = {
+      limit: bench ? 10 : 8,
+      measure: (mm, pps) => dryRunPrepTraits(mm, pps),
+      score: (pp, rec, i) => { const r = goalScore(m, ps, goalId, pp, rec); metricsOf[i] = r.metrics; return r.score; },
+    };
+    const job = yield* createRehearsalSteps(m, ps, board.length ? board : sets[0], plans, goal);
+    if (job) {
+      const slice = Number.isFinite(opts.sliceMs) ? opts.sliceMs : Infinity;
+      while (!job.run(slice)) yield;
+      target = job.best;
+      metrics = metricsOf[job.plans.indexOf(job.best)] || null;
+    }
+  } else if (goalId && goalId !== 'combat' && !canRehearse && plans.length > 1) {
+    target = staticBestPlan(m, ps, plans, goalId) || plans[0];
+  } else if (plans.length > 1) {
+    const job = yield* createRehearsalSteps(m, ps, board.length ? board : sets[0], plans);
+    if (job) {
+      const slice = Number.isFinite(opts.sliceMs) ? opts.sliceMs : Infinity;
+      while (!job.run(slice)) yield;
+      target = job.best;
+    } else target = distinctPlans(plans)[0] || plans[0];
+  }
+  const chosen = ps.allChess().filter((p) => target.has(p.uid));
+  const before = new Set(board.map((p) => p.uid));
+  const swapped = chosen.filter((p) => !before.has(p.uid)).length;
   yield* applyPlanSteps(m, ps, chosen, target);
-  return true;
+  return { goal: goalId || 'combat', bench, metrics, swapped };
+}
+
+/** Put `plan` on the board (as the rehearsal does: hand / temp follow), run fn(), restore everything exactly. */
+function withPlanOnBoard(m, ps, plan, fn) {
+  const byUid = new Map(ps.allChess().map((p) => [p.uid, p]));
+  const saved = [...ps.board.entries()];
+  const savedHand = ps.hand.slice();
+  const savedTemp = ps.temp.slice();
+  const savedDirs = new Map([...byUid.values(), ...saved.map(([, p]) => p)].map((p) => [p, Object.hasOwn(p, 'dir') ? { v: p.dir } : null]));
+  try {
+    ps.board.clear();
+    for (const [uid, k] of plan) { const p = byUid.get(uid); if (p) { p.dir = planDir(plan, uid); ps.board.set(k, p); } }
+    const state = lineupState(m, { ...ps, board: new Map(saved), hand: savedHand, temp: savedTemp }, [...ps.board.values()]);
+    ps.hand.splice(0, ps.hand.length, ...state.hand, ...Array(Math.max(0, savedHand.length - state.hand.length)).fill(null));
+    ps.temp.splice(0, ps.temp.length, ...savedTemp.map((p) => p && plan.has(p.uid) ? null : p));
+    ps.recompute();
+    return fn();
+  } finally {
+    ps.board.clear();
+    for (const [p, d] of savedDirs) { if (d) p.dir = d.v; else delete p.dir; }
+    for (const [k, p] of saved) ps.board.set(k, p);
+    ps.hand.splice(0, ps.hand.length, ...savedHand);
+    ps.temp.splice(0, ps.temp.length, ...savedTemp);
+    ps.recompute();
+  }
+}
+
+const NO_BATTLE = Object.freeze({ leaked: [], killed: 0, layerGains: {}, coins: 0, perfect: true });
+
+/** 特质 conditions that read the tile / facing of the piece (the layouts the goal refinement may change). */
+const POSITIONAL_KEYS = new Set(['SERVER_ADD_BOND_POSITION', 'SERVER_FRONT_SAME_EFFECT_PREP_FIN', 'SERVER_FRONT_SAME_EFFECT_PREP_START',
+  'SERVER_TRIGGER_ANOTHER', 'SERVER_TRIGGER_FRONT_COUNT']);
+
+/**
+ * Goal refinement (layers / economy): hill-climb `plan` on what the layout's prep 特质 yield (dryRunPrepTraits) — swap
+ * two operators (both tiles legal for both), move one to a free legal tile, turn a facing-dependent one — keeping the
+ * same roster. Returns the improved plan or null. The rehearsal then prices its combat cost against the other candidates.
+ */
+function refineForGoal(m, ps, plan, goalId, { iters = 4, maxEvals = 600 } = {}) {
+  const gd = ps.gd || m.gd;
+  const byUid = new Map(ps.allChess().map((p) => [p.uid, p]));
+  const uids = [...plan.keys()].filter((u) => byUid.has(u));
+  if (uids.length < 2) return null;
+  const facing = new Set(uids.filter((u) => (gd.chess(byUid.get(u).id)?.garrisonIds || []).some((gid) => POSITIONAL_KEYS.has(gd.garrison(gid)?.effectKey))));
+  const map = ps.deployMap();
+  const cls = new Map(uids.map((u) => [u, placeClass(ps, gd.chess(byUid.get(u).id))]));
+  const legal = (u, k) => { const [r, c] = parseKey(k); return canPlace(map, cls.get(u), r, c); };
+  const tiles = [];
+  for (let r = FIELD.r0; r <= FIELD.r1; r++) for (let c = FIELD.c0; c <= FIELD.c1; c++) tiles.push(tileKey(r, c));
+  const copyPlan = (pl) => { const q = new Map(pl); q.dirs = new Map(pl.dirs instanceof Map ? pl.dirs : []); return q; };
+  return withPlanOnBoard(m, ps, plan, () => {
+    const base = [...ps.board.entries()];
+    const baseDirs = new Map(uids.map((u) => [u, byUid.get(u).dir]));
+    let evals = 0;
+    const value = (pl) => {
+      evals++;
+      ps.board.clear();
+      for (const [u, k] of pl) { const p = byUid.get(u); if (p) { p.dir = planDir(pl, u); ps.board.set(k, p); } }
+      try { return goalScore(m, ps, goalId, NO_BATTLE, dryRunPrepTraits(m, ps)).score; } catch { return -Infinity; }
+      finally {
+        ps.board.clear();
+        for (const [k, p] of base) ps.board.set(k, p);
+        for (const [u, d] of baseDirs) byUid.get(u).dir = d;
+      }
+    };
+    const v0 = value(plan);
+    let cur = copyPlan(plan), v = v0;
+    for (let it = 0; it < iters && evals < maxEvals; it++) {
+      let best = null;
+      const consider = (q) => { if (evals >= maxEvals) return; const vq = value(q); if (vq > v + 1e-6 && (!best || vq > best.v)) best = { q, v: vq }; };
+      const occupied = new Map([...cur].map(([u, k]) => [k, u]));
+      for (let i = 0; i < uids.length; i++) for (let j = i + 1; j < uids.length; j++) {
+        const a = uids[i], b = uids[j], ka = cur.get(a), kb = cur.get(b);
+        if (!ka || !kb || !legal(a, kb) || !legal(b, ka)) continue;
+        const q = copyPlan(cur); q.set(a, kb); q.set(b, ka); consider(q);
+      }
+      for (const u of uids) for (const k of tiles) {
+        if (occupied.has(k) || !legal(u, k)) continue;
+        const q = copyPlan(cur); q.set(u, k); consider(q);
+      }
+      for (const u of facing) for (const d of ['RIGHT', 'LEFT', 'UP', 'DOWN']) {
+        if (planDir(cur, u) === d) continue;
+        const q = copyPlan(cur); q.dirs.set(u, d); consider(q);
+      }
+      if (!best) break;
+      cur = best.q; v = best.v;
+    }
+    return v > v0 + 1e-6 ? cur : null;
+  });
+}
+
+/** The plan whose prep 特质 yield the most under `goalId` (no battle to rehearse). */
+function staticBestPlan(m, ps, plans, goalId) {
+  let best = null, bestScore = -Infinity;
+  for (const plan of distinctPlans(plans)) {
+    let sc = -Infinity;
+    try { sc = withPlanOnBoard(m, ps, plan, () => goalScore(m, ps, goalId, NO_BATTLE, dryRunPrepTraits(m, ps)).score); } catch { /* skip */ }
+    if (sc > bestScore + 1e-9) { bestScore = sc; best = plan; }
+  }
+  return best;
+}
+
+/**
+ * Alternative rosters for the layers / economy goals: a hand operator swapped onto a board operator's tile of `plan`
+ * (the base roster's layout), ranked by what the layout's prep 特质 then yield (dryRunPrepTraits). Returns up to two
+ * sets: the best single swap and a greedy chain of up to three improving swaps.
+ */
+function goalLineups(m, ps, baseSet, plan, goalId) {
+  const valueOf = (pl) => {
+    try { return withPlanOnBoard(m, ps, pl, () => goalScore(m, ps, goalId, NO_BATTLE, dryRunPrepTraits(m, ps)).score); } catch { return -Infinity; }
+  };
+  const inSet = new Set(baseSet.map((p) => p.uid));
+  const pool = ps.allChess().filter((p) => p && p.kind === 'chess' && !inSet.has(p.uid));
+  if (!pool.length) return [];
+  const sig = (p) => `${p.id}|${(p.items || []).map((it) => it.id).sort().join('+')}`;
+  const swapPlan = (pl, out, inc) => {
+    const q = new Map(pl);
+    const k = q.get(out.uid);
+    q.delete(out.uid);
+    q.set(inc.uid, k);
+    q.dirs = new Map(pl.dirs instanceof Map ? pl.dirs : []);
+    q.dirs.set(inc.uid, planDir(pl, out.uid));
+    q.dirs.delete(out.uid);
+    return q;
+  };
+  const bestSwap = (pl, set, cand) => {
+    const v0 = valueOf(pl);
+    let best = null;
+    const tried = new Set();
+    for (const inc of cand) {
+      const sg = sig(inc);
+      if (tried.has(sg)) continue;
+      tried.add(sg);
+      for (const out of set) {
+        if (sig(out) === sg || !pl.has(out.uid)) continue;
+        const q = swapPlan(pl, out, inc);
+        const v = valueOf(q);
+        if (v > v0 + 1 && (!best || v > best.v)) best = { v, out, inc, plan: q };
+      }
+    }
+    return best;
+  };
+  const out = [];
+  const first = bestSwap(plan, baseSet, pool);
+  if (!first) return out;
+  out.push(baseSet.map((p) => (p === first.out ? first.inc : p)));
+  let set = out[0], pl = first.plan, rest = pool.filter((p) => p !== first.inc);
+  for (let k = 1; k < 3 && rest.length; k++) {
+    const nx = bestSwap(pl, set, rest);
+    if (!nx) break;
+    set = set.map((p) => (p === nx.out ? nx.inc : p));
+    pl = nx.plan;
+    rest = rest.filter((p) => p !== nx.inc);
+  }
+  if (set !== out[0]) out.push(set);
+  return out;
 }
 
 /** arrange as a step generator (yields inside the layout planning, see planLayoutSteps). */

@@ -819,10 +819,10 @@ function MatchScreen() {
     setReadyBusy(false);
   }, []);
   // 一键站位: one request at a time (the server plans and rehearses several layouts)
-  const autoArrange = useCallback(async () => {
+  const autoArrange = useCallback(async (opts = {}) => {
     if (autoBusyRef.current) return;
     autoBusyRef.current = true; setAutoBusy(true);
-    try { await actions.autoArrange(); } finally { autoBusyRef.current = false; setAutoBusy(false); }
+    try { await actions.autoArrange(opts); } finally { autoBusyRef.current = false; setAutoBusy(false); }
   }, []);
   // the prep ended (timer) while the question was open: drop it — the funds are gone either way
   useEffect(() => { if (phase !== PHASE.PREP && askingReady.current) closeAllDialogs(); }, [phase]);

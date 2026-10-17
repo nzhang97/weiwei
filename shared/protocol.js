@@ -427,8 +427,9 @@ export const C2S = {
   'g.sell': { uid: isUid },
   // dir: the facing chosen on the deploy wheel for a board target (absent ⇒ RIGHT; the piece's own tile ⇒ re-orient)
   'g.move': { uid: isUid, to: target, dir: isDir, $optional: ['dir'] },
-  // 一键站位 (server/match/match/intents.js autoArrange): the AI planner re-places the operators on the own board
-  'g.autoArrange': {},
+  // 一键站位 (server/match/match/intents.js autoArrange): the AI planner re-places the operators on the own board.
+  // goal: the tendency (战斗力 / 叠层 / 经济优先; absent ⇒ fewest leaks), bench: hand operators may be swapped in
+  'g.autoArrange': { goal: (v) => v === 'combat' || v === 'layers' || v === 'economy', bench: isBool, $optional: ['goal', 'bench'] },
   // replaceUid: with both of the target's slots used, the equipped item the replace dialog picked (research 09 §1.2
   // UseEquipUp.unloadInstId; absent ⇒ the oldest; not one of the target's items ⇒ BAD_TARGET)
   'g.equip': { itemUid: isUid, targetUid: isUid, replaceUid: nullable(isUid), $optional: ['replaceUid'] },

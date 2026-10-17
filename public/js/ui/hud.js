@@ -28,6 +28,7 @@ import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, Modal, useTicker } from './components.js';
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
+import { loadPref, savePref } from '../store.js';
 import { localAsset } from '../data.js';
 import { serverNow } from '../store.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason } from './gameLogic.js';
@@ -247,6 +248,19 @@ export function tempReadyReason(priv) {
   return info.count ? t('临时整备区还有 {count} 个单位：{rule}', { count: info.count, rule: t(TEMP_RULE) }) : null;
 }
 
+/** The 「AI站位」 tendencies (server/match/botLayoutGoals.js). */
+export const AUTO_ARRANGE_GOALS = Object.freeze([
+  { id: 'combat', label: N_('战斗力优先'), tip: N_('试演本回合敌人，按最少漏怪摆放；漏掉赏金怪按 12 只普通怪计') },
+  { id: 'layers', label: N_('叠层优先'), tip: N_('按战斗中与休整期特质（身前/身后、同一行等站位条件）能叠的层数最多摆放') },
+  { id: 'economy', label: N_('经济优先'), tip: N_('按下回合收益最多摆放：赏金、资金、免费刷新、装备、获得的干员（含三合一价值）、远见/奇迹叠层') },
+]);
+
+/** The stored 「AI站位」 choice: { goal, bench } (unknown ⇒ 战斗力优先, only the board). */
+export function sanitizeAutoArrangePref(v) {
+  const goal = v && AUTO_ARRANGE_GOALS.some((g) => g.id === v.goal) ? v.goal : 'combat';
+  return { goal, bench: !!(v && v.bench === true) };
+}
+
 /**
  * Ready toggle (PREP only). Disabled while the temp row holds pieces or a personal choice (教鞭) is open — the reason shows
  * under it (not only on hover): "临时整备区 N 个单位待处理" (user playtest #3 item 3), "请先完成教鞭选择".
@@ -264,10 +278,25 @@ export function ReadyToggle({ priv, onToggle, busy, readyCount, total, onAutoArr
     <span class="readybtn__label">${ready ? t('取消准备') : t('准备就绪')}</span>
     <kbd class="readybtn__key">${hotkeyLabelOf('ready')}</kbd>
   </button>`;
-  // 一键站位 (g.autoArrange): beside the ready toggle while the board can still be edited
-  const auto = onAutoArrange && !ready && !choice ? html`<${Tooltip} text=${t('AI 按最少漏怪重新摆放场上干员（试演本回合敌人）')} placement="bottom">
-      <button type="button" class=${cx('autoarrbtn', 'tapx', autoBusy && 'is-busy')} disabled=${!!autoBusy} data-testid="auto-arrange"
-        onClick=${() => onAutoArrange()}><${Icon} name="refresh" /><span>${t('AI站位')}</span></button><//>` : null;
+  // 一键站位 (g.autoArrange): beside the ready toggle while the board can still be edited — with its tendency
+  // (战斗力 / 叠层 / 经济优先) and whether the 整备区 operators may be swapped in, remembered in localStorage
+  const [arr, setArr] = useState(() => sanitizeAutoArrangePref(loadPref('autoArrange', null)));
+  const setPref = (patch) => setArr((cur) => { const next = sanitizeAutoArrangePref({ ...cur, ...patch }); savePref('autoArrange', next); return next; });
+  const goalTip = AUTO_ARRANGE_GOALS.find((g) => g.id === arr.goal)?.tip;
+  const auto = onAutoArrange && !ready && !choice ? html`<div class="autoarr">
+      <${Tooltip} text=${t(goalTip)} placement="bottom">
+        <button type="button" class=${cx('autoarrbtn', 'tapx', autoBusy && 'is-busy')} disabled=${!!autoBusy} data-testid="auto-arrange"
+          onClick=${() => onAutoArrange({ goal: arr.goal, bench: arr.bench })}><${Icon} name="refresh" /><span>${t('AI站位')}</span></button><//>
+      <div class="autoarr__opts">
+        <select class="autoarr__goal" data-testid="auto-arrange-goal" aria-label=${t('站位倾向')} value=${arr.goal}
+          onChange=${(e) => setPref({ goal: e.currentTarget.value })}>
+          ${AUTO_ARRANGE_GOALS.map((g) => html`<option value=${g.id} selected=${g.id === arr.goal}>${t(g.label)}</option>`)}
+        </select>
+        <${Tooltip} text=${t('勾选后可把整备区的干员换上场；不勾选只重新摆放场上干员')} placement="bottom">
+          <label class="autoarr__bench"><input type="checkbox" data-testid="auto-arrange-bench" checked=${arr.bench}
+            onChange=${(e) => setPref({ bench: !!e.currentTarget.checked })} /><span>${t('含整备区')}</span></label><//>
+      </div>
+    </div>` : null;
   const main = reason ? html`<${Tooltip} text=${reason} placement="bottom">${btn}<//>` : btn;
   return html`<div class="readywrap">
     ${auto ? html`<div class="readywrap__row">${auto}${main}</div>` : main}
