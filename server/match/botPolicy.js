@@ -15,6 +15,11 @@
 // 2026-10-12 port to upstream 0.2.5 (docs/PORT_NOTES_AI.md): prepRefreshes 8 keeps V3's validated paid-refresh budget
 // (upstream's own cap is MAX_REFRESHES 16); bandScoring (V3 band softmax) is on only in the tuned ABYSS co-op table —
 // elsewhere upstream's starting-LP band draw (test/match/bot.test.js expects its variety).
+// 2026-10-18 combatLayerDrive { from: 9, mul: 2 } (botStrategy.combatLayerFactor): from R9 a layer of a bond that matters
+// in the boss fights (灵巧 / 叙拉古 / 精准 / 奥术 / 谢拉格 …, measured by replaying captured 隐秘核心 fights) is worth up to
+// 2×. Two fresh seed sets, 1000 paired co-op ABYSS games: R14 wins 48:42 (n.s., not lower), rounds passed +0.045
+// (p=0.023), forced 隐秘核心 clear per captured fight 2.7% → 6.9% (116 vs 110 fights, p=0.10; both sets agree).
+// Not evaluated for solo (SOLO_POLICY turns it off).
 export const BOT_POLICY = Object.freeze({
   "bandLpWeight": 0.65,
   "coreLayerWeight": 0.45,
@@ -62,6 +67,7 @@ export const BOT_POLICY = Object.freeze({
     "ABYSS": {
       "bandScoring": true,
       "battleLayerYield": { "scale": 1, "cap": 40, "recurringCap": 40, "buyCap": 40 },
+      "combatLayerDrive": { "from": 9, "mul": 2 },
       "gainChurn": { "weight": 1, "min": 4, "perRefresh": 2 },
       "upgradeReserveCoins": 3,
       "upgradeReserveUntilRound": 7,
@@ -177,5 +183,6 @@ export const SOLO_POLICY = Object.freeze({
   ABYSS: Object.freeze({ ...BOT_POLICY.byDifficulty.ABYSS, coreLayerWeight: 0.9, coreLayerCap: 150, coreLayerValueMul: 2.4, bandScoring: false,
     hiddenLayerDrive: Object.freeze({ from: 9, mul: 1.8, addonAsCore: true, finalBonus: 150 }),
     battleLayerYield: Object.freeze({ scale: 1, cap: 40, recurringCap: 40, buyCap: 40 }),
-    gainChurn: Object.freeze({ weight: 1, min: 4, perRefresh: 2 }) }),
+    gainChurn: Object.freeze({ weight: 1, min: 4, perRefresh: 2 }),
+    combatLayerDrive: null }),
 });

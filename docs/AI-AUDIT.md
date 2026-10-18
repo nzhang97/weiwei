@@ -520,3 +520,31 @@ Goal set by the user: 4 AI, ABYSS, R14 clear first, 隐秘核心 second; broader
   p<1e-4); band bias = 8 × ridge effect → 11.0% (rounds −0.21; it dropped 歌利亚 from 25% to 4% of seats); forced
   歌利亚 + Touch + 卡莱莎 + 芬 → 8.5% (rounds −0.05). None adopted: the current trio 歌利亚 / Touch / 华法琳 is part of the
   strength, so broader choice must be tested per seat, not by flattening the distribution.
+
+## Co-op ABYSS: combat-layer drive for the 隐秘核心 (2026-10-18)
+
+Hidden-core study (captured 隐秘核心 fights replayed with tools-side hcsim, see the 2026-10-16 entries): the bottleneck is
+boss damage speed and the team LP left for overtime, not the Σ-layer threshold; extra layers help only on the bonds
+that act in the fight (灵巧 / 叙拉古 / 精准 / 奥术 ≈ +5.5 % boss HP removed per +100 layers, 谢拉格 5.2 %, 不屈 / 坚守 4.4 %,
+economy bonds 0). `combatLayerDrive { from, mul }` (botStrategy.combatLayerFactor, table COMBAT_LAYER_VALUE) scales
+layerValue from round `from` by `1 + (mul − 1) × value(bond)`.
+
+Paired co-op ABYSS games (4 AI, every R14 win forced into the 隐秘核心 and its fight captured; forced clear = mean of
+3 hcsim replays per captured fight):
+
+| seeds | arm | games | R14 win | paired wins vs base | Δ rounds passed | fights | forced 隐秘核心 clear |
+|---|---|---|---|---|---|---|---|
+| 560001–560400 | base | 400 | 11.2 % | — | — | 45 | 2.2 % |
+| | mul 1.5 | 400 | 14.8 % | 31:17 (p=0.059) | +0.068 (p=0.035) | 56 | 4.8 % |
+| | mul 2 | 400 | 11.5 % | 16:15 | +0.040 | 46 | 7.2 % |
+| 570001–570600 | base | 600 | 11.0 % | — | — | 65 | 3.1 % |
+| | mul 1.5 | 600 | 11.5 % | 35:32 | +0.013 | 68 | 9.8 % |
+| | mul 2 | 600 | 11.8 % | 32:27 | +0.048 (p=0.051) | 70 | 6.7 % |
+| pooled | base | 1000 | 11.1 % | — | — | 110 | 2.7 % |
+| | mul 1.5 | 1000 | 12.8 % | 66:49 (p=0.135) | +0.035 (p=0.060) | 124 | 7.5 % (p=0.051) |
+| | mul 2 | 1000 | 11.7 % | 48:42 | +0.045 (p=0.023) | 116 | 6.9 % (p=0.096) |
+
+mul 1.5's R14 gain did not replicate; mul 2 is the most consistent across both seed sets (rounds and hidden clear both
+up in each, R14 wins not lower). Adopted in the co-op ABYSS table: `combatLayerDrive: { from: 9, mul: 2 }`; solo keeps
+it off (not evaluated). Golden: the three co-op ABYSS bot matches in test/golden/matches.json were regenerated.
+Data: artifact coop_combat_layer_validation.csv; jobs 019ccdeb, d7e9fdc8 (nan-office).
