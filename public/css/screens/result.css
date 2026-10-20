@@ -81,3 +81,7 @@
 /* 玩家操作记录: 提交给AI学习 / 下载操作记录 (screens/result.js) */
 .result__foot { gap: .25rem; align-items: center; flex-wrap: wrap; }
 .result__dl { font-size: calc(.62 * var(--t)); text-decoration: underline; opacity: .8; }
+
+/* a match with gameplay plugins (DESIGN §32.6): the unofficial mark under the headline */
+.result__modmark { align-self: flex-start; margin-top: .06rem; }
+.result__test { display: flex; align-items: center; gap: .08rem; margin: .08rem 0 0; color: #e8b84a; }

@@ -157,8 +157,6 @@ export class BattleDeploy {
         }
         if (killer) killer.stats.kills++;
         if (unit.bounty && unit.bounty.coins > 0) this.addCoins(this._bountyPayee(unit, killer), unit.bounty.coins);
-        // 联防: the body is down — its children (spawned by this death or earlier) no longer cost its source player LP
-        if (this.kind === 'unite' && unit.rootId == null) this._absolveRoot(unit);
       }
     }
     // the reason ('killed' | 'retreat' | 'expired' | …) lets the client keep the knock-down sound for real knock-outs
@@ -261,44 +259,20 @@ export class BattleDeploy {
     if (this._hooks.enemyLeak) this.emit('enemyLeak', { enemy: e });
   }
 
-  /**
-   * 联防 本体击杀免责 (user ruling 2026-10-15): when a helper knocks down an enemy a leaker sent in (the body — a 频次
-   * unit, 术师快艇, any enemy that splits, death-spawns or summons), the children it leaves behind cost that leaker no LP,
-   * even when they reach the objective: the ones on the field are marked `absolved`, the ones that already got through
-   * have their leak entries re-marked (sourcePlayerId null, `absolved`), and the ones its death spawns are born absolved
-   * (spawnChildren). Settlement (server/match/unite.js uniteSurvivors) and the live 联防 count (spec.js uniteLeft) charge
-   * by sourcePlayerId, so they skip them. A body that itself reaches the objective (or survives) still costs 1 LP, and
-   * so does every child of it. The kill bounty stays on the body alone (spawnChildren strips it; _bountyPayee pays the
-   * helper who struck it down). Normal fields are unchanged: a split child that leaks there costs its owner LP.
-   */
-  _absolveRoot(unit) {
-    if (!this._absolvedRoots) this._absolvedRoots = new Set();
-    this._absolvedRoots.add(unit.id);
-    for (const e of this.enemies) if (e && e.rootId === unit.id) e.absolved = true;
-    const prior = this._rootLeaks && this._rootLeaks.get(unit.id);
-    if (prior) for (const l of prior) { l.sourcePlayerId = null; l.absolved = true; }
-  }
-
   _recordLeak(e, timeout) {
     const owner = timeout ? e.ownerId : this._ownerForTile([Math.round(e.y), Math.round(e.x)]) ?? e.ownerId;
     const pp = this._pp(owner) ?? this._pp(e.ownerId);
     if (pp) {
-      const absolved = this.kind === 'unite' && (!!e.absolved || (e.rootId != null && !!this._absolvedRoots && this._absolvedRoots.has(e.rootId)));
-      const entry = { enemyKey: e.defId, mods: e.mods ?? null, lpr: e.lpr ?? 1, sourcePlayerId: absolved ? null : e.sourcePlayerId ?? e.ownerId, tag: e.tag ?? null, counted: !!e.counted || e.isBoss, boss: e.isBoss || undefined, spawned: true };
-      if (absolved) entry.absolved = true;
+      const entry = { enemyKey: e.defId, mods: e.mods ?? null, lpr: e.lpr ?? 1, sourcePlayerId: e.sourcePlayerId ?? e.ownerId, tag: e.tag ?? null, counted: !!e.counted || e.isBoss, boss: e.isBoss || undefined, spawned: true };
+      // born while a 联防 field ran (spawns.js): the leaker never sent it in, so it costs nobody LP and raises no ×N —
+      // unite.js uniteSurvivors / spec.js uniteLeft filter it; every other reading keeps counting it as usual
+      if (e.uniteRuntime) entry.uniteRuntime = true;
       pp.leaked.push(entry);
-      // a child through before its body falls: re-marked if a helper knocks the body down later (_absolveRoot)
-      if (this.kind === 'unite' && !absolved && e.rootId != null) {
-        if (!this._rootLeaks) this._rootLeaks = new Map();
-        const list = this._rootLeaks.get(e.rootId);
-        if (list) list.push(entry); else this._rootLeaks.set(e.rootId, [entry]);
-      }
       if (e.counted || e.isBoss) pp.perfect = false;
     }
     if (e.counted) this.leakedCount++;
-    // the HUD capsule's leak counter (DESIGN §14): only the stage's own enemies (`inTotal`) — a leaked split child or
-    // summon still costs LP through `counted`/`leakedCount` and still breaks 完美作战, but it is no 漏掉 of the stage's
-    // own list, so the capsule's numerator does not move for it
+    // of the stage's own list, so the capsule's numerator does not move for it. On a 联防 field it is no LP charge either:
+    // such a leak carries `uniteRuntime` (spawns.js), and the 联防's billing reads that flag instead of this counter.
     if (e.inTotal) {
       this.leakedInTotal++;
       if (pp) pp.leakedInTotal++;

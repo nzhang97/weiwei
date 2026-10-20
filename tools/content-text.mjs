@@ -1,5 +1,5 @@
 // Narrow corrections to source descriptions, matching this implementation's established rules.
-// Keep numeric blackboards untouched. See docs/AI-AUDIT.md for the evidence and intentional deviations.
+// Keep numeric blackboards untouched. See docs/ai/AI-AUDIT.md for the evidence and intentional deviations.
 export function correctContentDescriptions(files) {
   const amend = (record, fn) => {
     if (!record) return;
