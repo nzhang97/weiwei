@@ -417,6 +417,10 @@ export class Lobby {
     // env words are parsed in server/testMode.js.
     const rawMode = testModeOpt != null ? testModeOpt : (typeof process !== 'undefined' && process.env ? process.env.SP_TEST_MODE : undefined);
     this.testMode = parseTestModeEnv(rawMode);
+    // 每轮自选 (Match.freePick): a server-wide option, off unless options.freePick or SP_FREE_PICK=1|on|true (the launcher's
+    // checkbox sets it); every match this lobby starts gets it
+    const rawPick = Object.hasOwn(options, 'freePick') ? options.freePick : (typeof process !== 'undefined' && process.env ? process.env.SP_FREE_PICK : undefined);
+    this.freePick = rawPick === true || (typeof rawPick === 'string' && /^(1|on|true|yes)$/i.test(rawPick.trim()));
     this.testUnrecognized = unrecognizedTestMode(rawMode);
     this.testHost = '';
     this.testEnabled = false;
@@ -1369,6 +1373,8 @@ export class Lobby {
     }
     // Omitted when the switch is off, so a welcome from a normal server stays identical.
     if (this.testEnabled === true) info.testMode = true;
+    // 每轮自选 (server option): omitted when off
+    if (this.freePick === true) info.freePick = true;
     return info;
   }
 
@@ -1413,6 +1419,8 @@ export class Lobby {
         modeId: room.content?.modeId || modeIdFor(room.mode, room.difficulty),
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
+        // 每轮自选 (server option): omitted when off, so a normal match's opts / journal do not grow a key
+        ...(this.freePick ? { freePick: true } : {}),
         seats,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),

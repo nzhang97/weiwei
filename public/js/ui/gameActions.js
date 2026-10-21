@@ -71,6 +71,8 @@ export const actions = {
   band: (bandId) => act('g.band', { bandId }),
   bandSkip: () => act('g.bandSkip'),
   buy: (slot) => act('g.buy', { slot }),
+  // 每轮自选 (server option SP_FREE_PICK): one free operator of the shared pool (ui/freePick.js)
+  freePick: (chessId) => act('g.freePick', { chessId }, { sfx: 'buy' }),
   // a tap while the previous g.refresh is still on the wire is dropped (GitHub #501) — see onRefreshBusy above
   refresh: () => {
     if (refreshPending) return Promise.resolve(false);

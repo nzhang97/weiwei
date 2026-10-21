@@ -239,3 +239,19 @@
 .lvcard.is-armed { background: linear-gradient(180deg, #ffd65a, #e0a800); color: #1d1400; box-shadow: 0 0 0 2px #fff4c2, 0 0 .3rem rgba(255, 198, 0, .5); animation: pulse-gold 1.1s var(--ease-in-out) infinite; }
 .lvcard.is-armed .lvcard__label { letter-spacing: .12em; padding-left: .12em; }
 
+
+/* ---- 每轮自选 (ui/freePick.js; server option SP_FREE_PICK, default off) ------------------------------------------- */
+.toolbtn--pick { --tb: var(--mint-400); grid-column: 1 / -1; justify-self: end; gap: .06rem; }
+.toolbtn--pick b { font-size: calc(.2 * var(--t)); }
+.toolbtn--pick.has-picks:not(:disabled) { box-shadow: 0 0 .14rem rgba(23, 249, 183, .35); }
+.freepick__hint { margin: 0 0 .12rem; color: var(--text-md); font-size: calc(.15 * var(--t)); }
+.freepick__tier { display: flex; align-items: flex-start; gap: .1rem; margin-bottom: .12rem; }
+.freepick__grid { display: flex; flex-wrap: wrap; gap: .08rem; }
+.freepick__card { position: relative; width: 1.0rem; height: 1.2rem; padding: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+  background: #151a18; border: 1px solid rgba(78, 216, 175, .35); cursor: pointer; }
+.freepick__card:hover:not(:disabled) { border-color: var(--mint-400); transform: translateY(-.03rem); }
+.freepick__card:disabled { cursor: not-allowed; filter: grayscale(.6) brightness(.7); }
+.freepick__art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; pointer-events: none; }
+.freepick__name { position: relative; z-index: 1; padding: .14rem .04rem .03rem; background: linear-gradient(0deg, rgba(8, 11, 10, .95) 55%, transparent);
+  color: #fff; font-size: calc(.14 * var(--t)); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.freepick__empty { color: var(--text-dim); font-size: calc(.16 * var(--t)); }

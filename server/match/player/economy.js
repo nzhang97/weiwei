@@ -209,6 +209,51 @@ export class PlayerEconomy {
     return OK;
   }
 
+  /**
+   * 每轮自选 (server option SP_FREE_PICK — the launcher's checkbox —, Match.freePick; default off): the operators a free pick
+   * may take now — base chess of the shared pool (this match's visible, not banned ones) with a copy left, tier ≤ the
+   * shop level; never a DIY slot. Sorted by tier, then id. Empty when the option is off or the seat is an AI.
+   * @returns {string[]}
+   */
+  freePickCandidates() {
+    if (!this.m.freePick || this.isBot) return [];
+    const pool = this.m.pool;
+    if (!pool || !pool.entries) return [];
+    const out = [];
+    for (const [id, e] of pool.entries) {
+      if (!(e.left > 0) || !(e.tier <= this.shop.level)) continue;
+      const rec = this.gd.chess(id);
+      if (!rec || rec.isDiy || rec.isGolden) continue;
+      out.push([e.tier, id]);
+    }
+    return out.sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0)).map((x) => x[1]);
+  }
+
+  /**
+   * g.freePick {chessId}: 每轮自选 — one pick per round (round.js startRound; unused picks carry over, no cap), human seats
+   * only: the operator joins the hand for free, taking a copy of the shared pool like a purchase (a merge completes as
+   * usual, onGain fires, a sale returns the copy). Refused: option off / AI seat (WRONG_PHASE), no pick left (NO_PICKS),
+   * not a candidate — banned, not in the pool, a tier above the shop level (BAD_TARGET) —, no copy left (SOLD_OUT), a full
+   * hand (HAND_FULL, like a purchase).
+   * @param {string} chessId
+   */
+  freePick(chessId) {
+    const g = this._gate(); if (g) return g;
+    if (!this.m.freePick || this.isBot) return fail(ERR.WRONG_PHASE, 'freePick off');
+    if (!((this.freePicks || 0) > 0)) return fail(ERR.NO_PICKS);
+    const pool = this.m.pool;
+    const rec = typeof chessId === 'string' ? this.gd.chess(chessId) : null;
+    if (!rec || rec.isDiy || rec.isGolden || !pool || !pool.has(chessId) || this.gd.baseIdOf(chessId) !== chessId) return fail(ERR.BAD_TARGET);
+    if (!(this.gd.tierOf(chessId) <= this.shop.level)) return fail(ERR.BAD_TARGET, 'tier');
+    if (!(pool.left(chessId) > 0)) return fail(ERR.SOLD_OUT);
+    if (freeSlot(this.hand) < 0) return fail(ERR.HAND_FULL);
+    this.freePicks--;
+    const piece = this.acquireChess(chessId, { source: 'freePick' });
+    this.recompute();
+    this.dirty?.();
+    return piece ? OK : fail(ERR.BAD_TARGET);
+  }
+
   refresh() {
     const g = this._gate(); if (g) return g;
     const free = this.shop.freeRefreshes > 0;

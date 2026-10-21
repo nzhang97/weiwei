@@ -2216,5 +2216,10 @@
   "经济优先：预计收益约 {funds} 资金，漏怪 {leaks}，换上整备区干员 {swapped} 名": "Economy first: about {funds} funds of income, {leaks} leaks, {swapped} bench operators swapped in",
   "战斗力优先：预计漏怪 {leaks}（赏金怪 {bounty}），击杀 {killed}": "Combat first: about {leaks} leaks ({bounty} bounty), {killed} kills",
   "战斗力优先：预计漏怪 {leaks}（赏金怪 {bounty}），击杀 {killed}，换上整备区干员 {swapped} 名": "Combat first: about {leaks} leaks ({bounty} bounty), {killed} kills, {swapped} bench operators swapped in",
-  "AI 按最少漏怪重新摆放场上干员（试演本回合敌人）": "AI re-places the deployed operators to leak the fewest enemies (rehearses this round's wave)"
+  "AI 按最少漏怪重新摆放场上干员（试演本回合敌人）": "AI re-places the deployed operators to leak the fewest enemies (rehearses this round's wave)",
+  "每轮自选": "Free pick",
+  "每轮自选：免费选择一名不超过商店等级的干员（未使用的次数会保留）": "Free pick: take one operator up to your shop level for free (unused picks carry over)",
+  "没有可用的自选次数": "No free picks left",
+  "剩余次数 {n} · 可选不超过商店等级 {lv} 的干员，从公共牌池中扣除": "{n} left · operators up to shop level {lv}, taken from the shared pool",
+  "当前没有可选的干员": "No operator can be picked right now"
 }

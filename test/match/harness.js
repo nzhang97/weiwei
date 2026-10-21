@@ -85,6 +85,8 @@ export function makeMatch(o = {}) {
     verify: o.verify ?? 'off',
     headlessSliceMs: o.headlessSliceMs,
     aiPicksLast: o.aiPicksLast,
+    // 每轮自选 (server option SP_FREE_PICK; test/match/free-pick.test.js)
+    freePick: o.freePick,
     // AI policy overrides (server/match/ai/botPolicy.js; Match merges them over the defaults)
     botPolicy: o.botPolicy,
     // a bot prep's layout rehearsal delegated to the room's host (DESIGN §14; test/match/rehearsal-delegate.test.js):

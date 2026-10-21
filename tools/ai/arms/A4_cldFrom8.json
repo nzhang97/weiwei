@@ -1,0 +1,8 @@
+{
+ "abyss": {
+  "combatLayerDrive": {
+   "from": 8,
+   "mul": 2
+  }
+ }
+}

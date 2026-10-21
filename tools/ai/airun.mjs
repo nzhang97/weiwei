@@ -86,6 +86,10 @@ for (let i = 0; i < argv.length; i++) {
 }
 const difficulty = String(opt.difficulty || 'ABYSS').toUpperCase();
 const SOLO = opt.solo != null && opt.solo !== 'off';
+// --force-hidden: every won 最终攻势 (team LP > 1) goes on to the 隐秘核心, whatever the Σ active layers — the real Σ is
+// still logged as `hls` (the AI never reads m.hiddenLayerSum, so play up to R14 is unchanged); `nat` = whether the real
+// Σ would have unlocked it. Measures the hidden-leader fight on every R14 win instead of the few natural unlocks.
+const FORCE_HIDDEN = opt['force-hidden'] != null && opt['force-hidden'] !== 'off';
 let seeds = [];
 if (opt.seeds) seeds = String(opt.seeds).split(',').map(Number).filter(Number.isFinite);
 else { const a = Number(opt.from) || 1, n = Number(opt.count) || 1; for (let i = 0; i < n; i++) seeds.push(a + i); }
@@ -155,6 +159,7 @@ function runOne(seed) {
   });
   const rounds = [];
   let last = '';
+  let bossFa = null, bossHc = null, realHls = null;
   const t0 = Date.now();
   if (blank != null) m.loneHuman = false;
   let blankLpSet = blank == null || opt.blankLp == null;
@@ -180,6 +185,12 @@ function runOne(seed) {
       if (bp) { bp.lp = Number(opt.blankLp); bp.dirty?.(); }
       blankLpSet = true;
     }
+    // the leader fights' last state: pool hp / max and the team LP (最终攻势 → fa, 隐秘核心 → hc)
+    if (m.bossPool && (m.phase === 'FINAL_ASSAULT' || m.phase === 'HIDDEN_CORE')) {
+      const st = [Math.round(m.bossPool.hp), m.bossPool.maxHp, m.teamLp == null ? null : Math.round(m.teamLp)];
+      if (m.phase === 'FINAL_ASSAULT') bossFa = st; else bossHc = st;
+    }
+    if (FORCE_HIDDEN && m.phase === 'FINAL_ASSAULT' && realHls == null) { realHls = m.hiddenLayerSum ?? 0; m.hiddenLayerSum = 1e9; }
     const key = `${m.phase}:${m.round}`;
     if (key !== last) {
       last = key;
@@ -212,7 +223,9 @@ function runOne(seed) {
   }, { maxSteps: 5e6 });
   const res = {
     seed, difficulty, stage: m.stageId, boss: m.bossId, win: !!summary?.victory, rp: summary?.roundsPassed ?? null,
-    reason: summary?.reason ?? 'stuck', hidden: !!summary?.hiddenReached, hls: m.hiddenLayerSum ?? null, lsrc, ...(LEDGER ? { led } : {}),
+    reason: summary?.reason ?? 'stuck', hidden: !!summary?.hiddenReached, hc: !!summary?.hiddenCleared, hboss: m.hiddenBossId ?? null,
+    fa: bossFa, hcp: bossHc, hls: realHls ?? m.hiddenLayerSum ?? null,
+    ...(FORCE_HIDDEN ? { forced: true, nat: realHls != null && realHls > (m.gd.isSolo ? m.gd.hiddenCore.single : m.gd.hiddenCore.multi) } : {}), lsrc, ...(LEDGER ? { led } : {}),
     players: (summary?.players || []).map((p) => ({ band: p.bandId, rp: p.roundsPassed, dmg: p.stats?.dmgDealt, kills: p.stats?.kills, merges: p.stats?.merges, gold: p.stats?.gold })),
     rounds, errors: errors.length + (m.errorCount || 0), simErrors: m.simErrors || 0, ms: Date.now() - t0,
   };

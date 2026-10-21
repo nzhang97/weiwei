@@ -1,0 +1,10 @@
+{
+ "abyss": {
+  "hiddenLayerDrive": {
+   "from": 9,
+   "mul": 1.8,
+   "addonAsCore": true,
+   "finalBonus": 150
+  }
+ }
+}

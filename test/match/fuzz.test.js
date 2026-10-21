@@ -29,6 +29,8 @@ function randomIntent(rng, m, ps) {
     case 'g.rerollVote': return { t, voteId: m.setupVote?.id ?? 1 + rng.int(10), agree: rng() < 0.5 };
     case 'g.band': return { t, bandId: rng() < 0.8 ? rng.pick(BANDS) : rng.pick(['constructor', '__proto__', 'band_x', 'a'.repeat(64)]) };
     case 'g.buy': return { t, slot: rng.int(16) };
+    // 每轮自选 (half the fuzz matches run with the option on): any pool operator, an elite form, or a made-up id
+    case 'g.freePick': return { t, chessId: rng() < 0.8 && m.pool?.entries?.size ? rng.pick([...m.pool.entries.keys()]) : rng.pick(['chess_char_1_01_b', 'chess_x', 'a'.repeat(40)]) };
     case 'g.sell': case 'g.destroy': return { t, uid: uid() };
     case 'g.move': return { t, uid: uid(), to: to() };
     case 'g.equip': return { t, itemUid: uid(), targetUid: uid() };
@@ -53,7 +55,8 @@ function fuzzOne(seed, { fake, rules }) {
   const difficulty = rng.pick(['FUNNY', 'NORMAL', 'HARD', 'ABYSS']);
   const humans = mode === 'solo' ? 1 : 1 + rng.int(3);
   const bots = mode === 'solo' ? 0 : rng.int(3);
-  const h = makeMatch({ mode, difficulty, humans, bots, seed, fake, rules, captureFrames: false, checkFrames: true, script: () => ({ duration: 2 + rng.int(6), leaks: {} }) });
+  const freePick = rng() < 0.5;
+  const h = makeMatch({ mode, difficulty, humans, bots, seed, fake, rules, freePick, captureFrames: false, checkFrames: true, script: () => ({ duration: 2 + rng.int(6), leaks: {} }) });
   const m = h.m;
   m.start();
   const humanIds = [...m.players.values()].filter((p) => !p.isBot).map((p) => p.playerId);

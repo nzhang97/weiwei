@@ -1,0 +1,5 @@
+{
+ "coreLayerWeight": 0.9,
+ "coreLayerCap": 150,
+ "coreLayerValueMul": 2.4
+}

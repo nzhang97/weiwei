@@ -557,6 +557,8 @@ export const C2S = {
   // free (Match.timeoutBand); absent / null clears it
   'g.bandFocus': { bandId: nullable(isId), $optional: ['bandId'] },
   'g.buy': { slot: (v) => isInt(v, 0, 15) },
+  // 每轮自选 (server option SP_FREE_PICK, default off): take one operator of the shared pool for free (PlayerState.freePick)
+  'g.freePick': { chessId: isId },
   'g.refresh': {},
   'g.freeze': {},
   'g.levelUp': {},

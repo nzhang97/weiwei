@@ -283,8 +283,12 @@ export function garrisons(m, id) {
 export function lineupState(m, ps, set) {
   const inSet = new Set(set.map((p) => p.uid));
   const hand = (ps.hand || []).filter((p) => p && !inSet.has(p.uid));
+  // lineupWithdrawRoom (default off; 0.3.1 arrangeSteps semantics): a withdrawn board member is counted only while the
+  // hand has a free slot NOW — arrangeSteps withdraws before it deploys, and sells what does not fit
+  let room = (m.botPolicy || BOT_POLICY).lineupWithdrawRoom
+    ? Math.max(0, (ps?.gd || m.gd).benchSize - (ps.hand || []).filter(Boolean).length) : Infinity;
   for (const p of [...(ps.board?.values?.() || []), ...(ps.temp || [])]) {
-    if (p?.kind === 'chess' && !inSet.has(p.uid) && !hand.some((h) => h.uid === p.uid) && hand.length < (ps?.gd || m.gd).benchSize) hand.push(p);
+    if (room > 0 && p?.kind === 'chess' && !inSet.has(p.uid) && !hand.some((h) => h.uid === p.uid) && hand.length < (ps?.gd || m.gd).benchSize) { hand.push(p); room--; }
   }
   const board = new Map(set.map((p, i) => [`x${i}`, p]));
   return { board, hand, bonds: computeBonds(m.gd, { board, hand, layers: ps.layers, bondCountBonus: ps.bondCountBonus }) };

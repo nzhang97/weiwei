@@ -85,6 +85,8 @@ export class PlayerViews {
         refreshPrice: free ? 0 : this.gd.refreshPrice,
         freeRefreshes: this.shop.freeRefreshes,
         frozen: this.shop.frozen,
+        // 每轮自选 (Match.freePick, human seats): picks left and the operators a pick may take now (absent when off)
+        ...(this.m.freePick && !this.isBot ? { freePicks: this.freePicks || 0, freePickCands: this.freePickCandidates() } : {}),
         slots,
         // `source` 'merge' = the promotion reward (晋升奖励); any other offer (a strategy, an item, a 特质) carries the
         // `label` the bar shows instead; `queued` = offers waiting behind it (player report #6 after 0.1.0)

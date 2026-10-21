@@ -136,6 +136,11 @@ $chkLocal.Margin = New-Object System.Windows.Forms.Padding(10, 8, 3, 3)
 $chkNoAssets = New-Object System.Windows.Forms.CheckBox
 $chkNoAssets.Text = '准备环境时跳过美术资源下载'; $chkNoAssets.Checked = $false; $chkNoAssets.AutoSize = $true
 $chkNoAssets.Margin = New-Object System.Windows.Forms.Padding(10, 8, 3, 3)
+# 每轮自选 (SP_FREE_PICK, default off): every round a player may take one operator up to the own shop level for free (not
+# banned, from the shared pool); an unused pick carries over. Read at server start: restart the server after a change.
+$chkFreePick = New-Object System.Windows.Forms.CheckBox
+$chkFreePick.Text = '每轮自选干员（不超过商店等级，未用次数保留）'; $chkFreePick.Checked = ($env:SP_FREE_PICK -match '^(1|on|true|yes)$'); $chkFreePick.AutoSize = $true
+$chkFreePick.Margin = New-Object System.Windows.Forms.Padding(10, 8, 3, 3)
 
 $row1 = New-Object System.Windows.Forms.FlowLayoutPanel
 $row1.AutoSize = $true; $row1.WrapContents = $true; $row1.Width = 820
@@ -154,8 +159,8 @@ $lblAddr = New-Label ''
 $lblAddr.Margin = New-Object System.Windows.Forms.Padding(6, 4, 3, 6)
 $lblAddr.ForeColor = [System.Drawing.Color]::FromArgb(30, 90, 160)
 
-foreach ($c in @($lblStatus, $lblPort, $numPort, $chkOpen, $chkLocal, $chkNoAssets)) { [void]$top.Controls.Add($c) }
-$top.SetFlowBreak($chkNoAssets, $true)
+foreach ($c in @($lblStatus, $lblPort, $numPort, $chkOpen, $chkLocal, $chkNoAssets, $chkFreePick)) { [void]$top.Controls.Add($c) }
+$top.SetFlowBreak($chkFreePick, $true)
 [void]$top.Controls.Add($row1)
 $top.SetFlowBreak($row1, $true)
 [void]$top.Controls.Add($lblAddr)
@@ -273,12 +278,14 @@ function Start-Server {
   $psi.EnvironmentVariables['PORT'] = "$p"
   $psi.EnvironmentVariables['NO_COLOR'] = '1'
   $psi.EnvironmentVariables['FORCE_COLOR'] = '0'
+  if ($chkFreePick.Checked) { $psi.EnvironmentVariables['SP_FREE_PICK'] = '1' } elseif ($psi.EnvironmentVariables.ContainsKey('SP_FREE_PICK')) { $psi.EnvironmentVariables.Remove('SP_FREE_PICK') }
   if ($chkLocal.Checked) { $psi.EnvironmentVariables['HOST'] = '127.0.0.1' } elseif ($psi.EnvironmentVariables.ContainsKey('HOST') -and -not $env:HOST) { $psi.EnvironmentVariables.Remove('HOST') }
   try {
     $script:ProcStart = (Get-Date).AddSeconds(-1)
     $script:Proc = [System.Diagnostics.Process]::Start($psi)
     $script:Starting = $true; $script:Opened = $false; $script:LastUp = $null
     Say ("正在启动服务器（端口 $p，Node：" + $script:Node + "）…")
+    if ($chkFreePick.Checked) { Say '已开启：每轮自选干员（SP_FREE_PICK=1）' }
   } catch {
     Say ("启动失败：" + $_.Exception.Message)
   }

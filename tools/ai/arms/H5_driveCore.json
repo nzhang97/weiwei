@@ -1,0 +1,13 @@
+{
+ "coreLayerWeight": 0.9,
+ "coreLayerCap": 150,
+ "coreLayerValueMul": 2.4,
+ "abyss": {
+  "hiddenLayerDrive": {
+   "from": 9,
+   "mul": 1.8,
+   "addonAsCore": true,
+   "finalBonus": 150
+  }
+ }
+}

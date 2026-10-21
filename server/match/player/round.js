@@ -12,6 +12,8 @@ import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains } from '../
 export class PlayerRound {
   startRound(r) {
     this.round = { refreshes: 0, buys: 0, sells: 0, spent: 0, gainedChess: 0, arts: 0 };
+    // 每轮自选 (Match.freePick): one pick per round for a human seat; an unused pick carries over (no cap)
+    if (this.m.freePick && !this.isBot) this.freePicks = (this.freePicks || 0) + 1;
     this.pendingLayerGains = null; // settled (or lapsed) at the last SETTLE
     if (r > 1) this.shop.upgradePrice = Math.max(0, this.shop.upgradePrice - 1);
     // onIncome handlers may rewrite ev.income / ev.pending (e.g. 老鲤 withholds R1–R2 income until R3)
