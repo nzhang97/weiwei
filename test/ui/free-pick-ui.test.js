@@ -36,6 +36,18 @@ test('a pick sends g.freePick { chessId }', async () => {
   } finally { net.request = prev; }
 });
 
+test('the dialog is mounted at the match screen root, outside the HUD layer (taps must not reach the field)', () => {
+  const game = read('public/js/screens/game.js');
+  assert.match(game, /import \{ FreePickDialog \} from '\.\.\/ui\/freePick\.js';/);
+  const hudStart = game.indexOf('<div class="gm__hud"');
+  const dlg = game.indexOf('<${FreePickDialog}');
+  const exit = game.indexOf('<${ExitModal}');
+  assert.ok(hudStart > 0 && dlg > 0 && exit > 0);
+  assert.ok(dlg > hudStart && Math.abs(exit - dlg) < 200, 'mounted beside ExitModal at the screen root');
+  const bar = read('public/js/ui/shopBar.js');
+  assert.doesNotMatch(bar, /FreePickDialog/, 'the shop bar no longer renders the dialog');
+});
+
 test('the shop bar mounts the button; the launcher sets SP_FREE_PICK from a default-off checkbox', () => {
   const bar = read('public/js/ui/shopBar.js');
   assert.match(bar, /import \{ FreePickButton \} from '\.\/freePick\.js';/);

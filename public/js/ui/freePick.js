@@ -3,13 +3,20 @@
 // m.private.shop.freePicks (absent ⇒ the option is off: nothing is drawn); the dialog lists the operators the server says a
 // pick may take now (shop.freePickCands: the shared pool's operators with a copy left, not banned, tier ≤ the shop level),
 // grouped by tier. A tap takes one (g.freePick); the copy comes out of the shared pool like a purchase.
+// The button lives in the shop bar; the dialog (FreePickDialog) is mounted at the match screen's root beside the other
+// dialogs (screens/game.js) — inside the bar it sat in the HUD layer under the bar's transform, and taps fell through to
+// the field.
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Modal, TierChip } from './components.js';
 import { Img } from './gameComponents.js';
 import { chessPortraitUrl } from './assetUrls.js';
 import { actions } from './gameActions.js';
+import { createStore, useStore } from '../store.js';
 import { data } from '../data.js';
 import { t } from '../../../shared/i18n.js';
+
+/** { open } of the dialog (the button opens it, the dialog closes it). */
+export const freePickStore = createStore({ open: false });
 
 /** The picks left (null when the option is off) and the candidate ids of a m.private. */
 export function freePickState(priv) {
@@ -31,28 +38,36 @@ export function groupByTier(ids, lookup = (id) => data.lookup('chess', id)) {
   return [...byTier.entries()].sort((a, b) => a[0] - b[0]);
 }
 
-/** The shop bar's 自选 button (nothing when the option is off) and its dialog. */
+/** The shop bar's 自选 ×N button (nothing when the option is off): opens FreePickDialog. */
 export function FreePickButton({ priv, editable }) {
   const st = freePickState(priv);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   if (!st) return null;
   const can = editable && st.left > 0;
+  return html`<button type="button" class=${'toolbtn toolbtn--pick' + (st.left > 0 ? ' has-picks' : '')} disabled=${!can}
+      onClick=${() => freePickStore.set({ open: true })} data-testid="free-pick"
+      title=${st.left > 0 ? t('每轮自选：免费选择一名不超过商店等级的干员（未使用的次数会保留）') : t('没有可用的自选次数')}>
+    <span>${t('自选')}</span><b class="num">×${st.left}</b>
+  </button>`;
+}
+
+/** The pick dialog, mounted at the match screen's root (screens/game.js) so it is above the HUD and the field. */
+export function FreePickDialog({ priv, editable }) {
+  const open = useStore((s) => s.open, Object.is, freePickStore);
+  const [busy, setBusy] = useState(false);
+  const st = freePickState(priv);
+  const close = () => freePickStore.set({ open: false });
+  if (!st || !open) return null;
+  const can = editable && st.left > 0;
   const pick = async (id) => {
-    if (busy) return;
+    if (busy || !can) return;
     setBusy(true);
     const ok = await actions.freePick(id);
     setBusy(false);
-    if (ok && st.left - 1 <= 0) setOpen(false);
+    if (ok && st.left - 1 <= 0) close();
   };
   const m = data.get('assets');
   const groups = groupByTier(st.cands);
-  return html`<button type="button" class=${'toolbtn toolbtn--pick' + (st.left > 0 ? ' has-picks' : '')} disabled=${!can}
-      onClick=${() => setOpen(true)} data-testid="free-pick"
-      title=${st.left > 0 ? t('每轮自选：免费选择一名不超过商店等级的干员（未使用的次数会保留）') : t('没有可用的自选次数')}>
-    <span>${t('自选')}</span><b class="num">×${st.left}</b>
-  </button>
-  <${Modal} open=${open} onClose=${() => setOpen(false)} title=${t('每轮自选')} micro="FREE PICK" width="min(92vw, 9.6rem)" class="freepick">
+  return html`<${Modal} open=${true} onClose=${close} title=${t('每轮自选')} micro="FREE PICK" width="min(92vw, 9.6rem)" class="freepick">
     <p class="freepick__hint">${t('剩余次数 {n} · 可选不超过商店等级 {lv} 的干员，从公共牌池中扣除', { n: st.left, lv: priv?.shop?.level ?? 1 })}</p>
     ${groups.length ? groups.map(([tier, list]) => html`<section class="freepick__tier" key=${tier}>
       <${TierChip} tier=${tier} size="sm" />
